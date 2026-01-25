@@ -262,7 +262,7 @@ class UsageDialog(QDialog):
             font-weight: bold;
         }
         
-        /* 主内容区域样式 */
+
         .main-content {
             flex-grow: 1;
             padding: 20px 40px;

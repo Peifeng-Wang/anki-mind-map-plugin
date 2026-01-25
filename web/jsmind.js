@@ -2890,9 +2890,16 @@
                         // Dynamically expand container if nearing edges (for infinite canvas)
                         const threshold = 200; // pixels from edge to trigger expansion (increased for smoother experience)
                         const expansion = 2000; // pixels to expand by (increased to reduce frequency of expansion)
+                        const dx = x - eventMove.clientX;
+                        const dy = y - eventMove.clientY;
+                        // Only expand when there is actually scrollable overflow in that direction.
+                        // Otherwise (e.g. at min zoom where content fits) expansion triggers every mousemove and shifts the layout.
+                        const canScrollX = this.e_panel.scrollWidth > this.e_panel.clientWidth + 1;
+                        const canScrollY = this.e_panel.scrollHeight > this.e_panel.clientHeight + 1;
 
                         // Expand right if scrolling near right edge
-                        if (this.e_panel.scrollLeft + this.e_panel.clientWidth > this.e_panel.scrollWidth - threshold) {
+                        if (dx > 0 && canScrollX &&
+                            this.e_panel.scrollLeft + this.e_panel.clientWidth > this.e_panel.scrollWidth - threshold) {
                             this.size.w += expansion;
                             this.e_nodes.style.width = this.size.w + 'px';
                             this.graph.set_size(this.size.w, this.size.h);
@@ -2901,7 +2908,8 @@
                         }
 
                         // Expand bottom if scrolling near bottom edge
-                        if (this.e_panel.scrollTop + this.e_panel.clientHeight > this.e_panel.scrollHeight - threshold) {
+                        if (dy > 0 && canScrollY &&
+                            this.e_panel.scrollTop + this.e_panel.clientHeight > this.e_panel.scrollHeight - threshold) {
                             this.size.h += expansion;
                             this.e_nodes.style.height = this.size.h + 'px';
                             this.graph.set_size(this.size.w, this.size.h);
@@ -2909,7 +2917,7 @@
                             this.show_lines(); // Redraw lines after canvas resize
                         }
 
-                        this.e_panel.scrollBy(x - eventMove.clientX, y - eventMove.clientY)
+                        this.e_panel.scrollBy(dx, dy)
                         // Record new current position.
                         x = eventMove.clientX
                         y = eventMove.clientY

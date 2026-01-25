@@ -197,8 +197,7 @@
                     var node_center_y = nl.y + ns.h / 2;
 
                     var dx, dy;
-                    // --- 修改开始：移除原始代码中强制要求拖动到节点外侧的检测 ---
-                    // 原始代码这里有 if (shadow_center_x < nl.x + ns.w) { continue; } 导致无法识别兄弟节点插入
+
                     if (direct == jsMind.direction.right) {
                         dx = shadow_center_x - (nl.x + ns.w);
                         dy = shadow_center_y - node_center_y;
@@ -210,7 +209,6 @@
                         np = { x: nl.x + options.line_width, y: node_center_y };
                         sp = { x: sx + sw - options.line_width, y: shadow_center_y };
                     }
-                    // --- 修改结束 ---
 
                     var distance = Math.sqrt(dx * dx + dy * dy);
 
@@ -234,29 +232,24 @@
             if (!!closest_node) {
                 var target_node = closest_node;
 
-                // --- 新增逻辑：根据水平位置决定是“做子节点”还是“做兄弟节点” ---
                 if (!closest_node.isroot) {
                     var n_loc = closest_node.get_location();
                     var n_size = closest_node.get_size();
                     var is_sibling_intent = false;
-                    var indent_threshold = 20; // 缩进阈值，超过这个值才认为是子节点
+                    var indent_threshold = 20;
 
                     if (direct == jsMind.direction.right) {
-                        // 如果阴影中心没有超过目标节点的右边界，说明用户想对齐做兄弟
                         if (shadow_center_x < n_loc.x + n_size.w + indent_threshold) {
                             is_sibling_intent = true;
                         }
                     } else {
-                        // 左侧同理
                         if (shadow_center_x > n_loc.x - indent_threshold) {
                             is_sibling_intent = true;
                         }
                     }
 
                     if (is_sibling_intent) {
-                        // 目标变为父节点（即当前节点变为兄弟）
                         target_node = closest_node.parent;
-                        // 重新计算连接线位置指向父节点
                         var p_loc = target_node.get_location();
                         var p_size = target_node.get_size();
                         if (direct == jsMind.direction.right) {
@@ -266,7 +259,6 @@
                         }
                     }
                 }
-                // --- 新增逻辑结束 ---
 
                 result_node = {
                     node: target_node,

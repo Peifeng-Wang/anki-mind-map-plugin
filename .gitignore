@@ -1,12 +1,11 @@
-﻿# Python
+﻿# --- Python Core ---
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 
-# Distribution / packaging
-.Python
+# --- Distribution / Packaging ---
 build/
 develop-eggs/
 dist/
@@ -23,20 +22,29 @@ wheels/
 .installed.cfg
 *.egg
 
-# PyInstaller
+# --- PyInstaller ---
 *.manifest
 *.spec
 
-# Anki specific
-meta.json
+# --- AI Tools & Cache ---
+.aider*
+.claude/
 
-# IDE
+# --- IDEs / Editors ---
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
+# --- OS Files ---
 .DS_Store
 Thumbs.db
+
+# --- Project Specific ---
+meta.json
+# mindmap_backup.py
+
+# --- Local Documentation ---
+AGENTS.md
+AIDER_CONVENTIONS.md

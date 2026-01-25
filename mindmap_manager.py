@@ -1,7 +1,7 @@
 from aqt import mw
 from aqt.qt import *
 from aqt.utils import showInfo, getText, askUser
-from .note_manager import create_new_mindmap_note, get_or_create_mindmap_model
+from .note_manager import create_new_mindmap_note
 from .mindmap_editor import MindMapDialog
 import uuid
 
@@ -133,8 +133,70 @@ class MindMapManager(QDialog):
         title = self.notes[row][0]
         
         if askUser(f"Are you sure you want to delete '{title}'? This cannot be undone."):
+            # Before deleting, clean up linked nodes in other maps
+            self._cleanup_linked_nodes_on_delete(nid)
             self.mw.col.remove_notes([nid])
             self.refresh_list()
+
+    def _cleanup_linked_nodes_on_delete(self, source_map_id):
+        """Remove linked nodes in other maps that point to this map"""
+        import json
+        try:
+            source_note = self.mw.col.get_note(source_map_id)
+            source_data_str = source_note['Data']
+            source_data = json.loads(source_data_str)
+            source_root = source_data.get('data', {})
+            
+            # Get all linked maps from the source root
+            linked_maps = source_root.get('linkedMaps', [])
+            
+            for link in linked_maps:
+                target_map_id = link.get('targetMapId')
+                linked_node_id = link.get('linkedNodeId')
+                
+                if not target_map_id or not linked_node_id:
+                    continue
+                
+                try:
+                    # Load target map and remove the linked node
+                    target_note = self.mw.col.get_note(target_map_id)
+                    target_data_str = target_note['Data']
+                    target_data = json.loads(target_data_str)
+                    
+                    # Recursively find and remove the linked node
+                    def remove_node(node, parent_children_list=None, index=None):
+                        if isinstance(node, dict):
+                            if node.get('id') == linked_node_id:
+                                if parent_children_list is not None and index is not None:
+                                    parent_children_list.pop(index)
+                                    return True
+                            if 'children' in node:
+                                for i, child in enumerate(list(node['children'])):
+                                    if remove_node(child, node['children'], i):
+                                        return True
+                        return False
+                    
+                    if 'data' in target_data:
+                        remove_node(target_data['data'])
+                    
+                    # Save target map
+                    target_note['Data'] = json.dumps(target_data)
+                    self.mw.col.update_note(target_note)
+                    
+                    print(f"Removed linked node {linked_node_id} from map {target_map_id}")
+                    
+                    # Refresh target map window if open
+                    if hasattr(self.mw, 'mindmap_editors'):
+                        for editor in self.mw.mindmap_editors:
+                            if editor.note_id == target_map_id:
+                                editor._handle_refresh()
+                                break
+                                
+                except Exception as e:
+                    print(f"Error cleaning up linked node in map {target_map_id}: {e}")
+                    
+        except Exception as e:
+            print(f"Error during cleanup on delete: {e}")
     
     def on_toggle_active(self):
         """Toggle whether this mind map allows new card associations"""

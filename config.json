@@ -1,15 +1,25 @@
 {
     "last_mindmap_id": null,
     "quick_open_shortcut": "Ctrl+M",
-    "enable_floating_nodes": true,
+    "enable_floating_nodes": false,
     "background_image": "",
     "background_overlay": "rgba(245, 245, 220, 0.0)",
     "line_color": "rgba(139, 92, 246, 0.6)",
     "jump_mode": "preview",
     "preview_mode": "all",
+    "preview_pinned": false,
     "hotkeys": {
         "save": "Ctrl+S",
         "refresh": "F5",
-        "focus_root": "Ctrl+R"
-    }
+        "focus_root": "Ctrl+R",
+        "create_summary": "Ctrl+Shift+S",
+        "create_boundary": "Ctrl+Shift+B",
+        "bold": "Ctrl+B",
+        "italic": "Ctrl+I",
+        "inline_code": "Ctrl+`",
+        "code_block": "Ctrl+Shift+`",
+        "toggle_collapse": "`"
+    },
+    "brace_color": "#3b82f6",
+    "boundary_color": "#ef4444"
 }

@@ -1,11 +1,63 @@
 from aqt import mw, gui_hooks
 from aqt.qt import *
-from aqt.utils import showInfo, getText, askUser, tooltip
+from aqt.utils import tooltip
+from typing import Any
 from .mindmap_manager import MindMapManager
 from .usage_guide import show_usage
 
+# Ensure newly-added config keys appear for users with an existing overridden config.
+def _deep_merge_defaults(user_value: Any, default_value: Any) -> tuple[Any, bool]:
+    """Merge default_value into user_value without overwriting existing user values."""
+    if isinstance(default_value, dict):
+        if not isinstance(user_value, dict):
+            return default_value, True
+        changed = False
+        for key, def_val in default_value.items():
+            if key not in user_value:
+                user_value[key] = def_val
+                changed = True
+            else:
+                merged, was_changed = _deep_merge_defaults(user_value[key], def_val)
+                user_value[key] = merged
+                changed = changed or was_changed
+        return user_value, changed
+
+    # For non-dict defaults, only fill in when missing at the dict level.
+    return user_value, False
+
+
+def _ensure_config_defaults() -> None:
+    try:
+        defaults = mw.addonManager.addonConfigDefaults(__name__) or {}
+    except Exception:
+        # Fallback for older Anki builds.
+        try:
+            import json
+            from pathlib import Path
+
+            defaults_path = Path(__file__).with_name("config.json")
+            defaults = json.loads(defaults_path.read_text(encoding="utf-8"))
+        except Exception:
+            defaults = {}
+
+    if not isinstance(defaults, dict) or not defaults:
+        return
+
+    try:
+        user_config = mw.addonManager.getConfig(__name__) or {}
+        merged, changed = _deep_merge_defaults(user_config, defaults)
+        if changed:
+            mw.addonManager.writeConfig(__name__, merged)
+    except Exception:
+        # Avoid breaking startup if config can't be accessed yet.
+        return
+
+
+_ensure_config_defaults()
+
 # Ensure model is up-to-date when collection loads (one-time migration)
 def on_collection_loaded(col):
+    _ensure_config_defaults()
     from .note_manager import get_or_create_mindmap_model
     get_or_create_mindmap_model()
 
@@ -78,3 +130,4 @@ init_card_linker()
 
 # Import review indicator for mind map associations
 from . import review_indicator
+

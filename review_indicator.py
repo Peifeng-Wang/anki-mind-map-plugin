@@ -2,7 +2,6 @@
 Display mind map association indicator in review interface
 """
 from aqt import mw, gui_hooks
-from aqt.reviewer import Reviewer
 import re
 
 def show_mindmap_indicator():

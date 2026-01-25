@@ -6,7 +6,6 @@ import json
 import os
 from datetime import datetime
 from aqt.qt import QFileDialog
-from aqt.utils import tooltip
 
 
 def export_mindmap_to_json(parent_widget, mw, note_id, title=None):

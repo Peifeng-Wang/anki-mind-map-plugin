@@ -1,3 +1,24 @@
+## [2.0.0] - 2026-01-25
+
+### Added
+- **Inter-Map Linking**: Implemented bi-directional linking between mind maps. Users can now right-click the root node to establish links to other mind map files.
+- **New Node Relocation Strategy**: Added the ability to designate a Boundary as a "Target Zone." New nodes generated from card links will automatically be placed within this specific boundary.
+- **Node Boundaries**: Introduced rectangular boundaries for visual grouping.
+    - Select multiple nodes (Shift + Click) and use the context menu or shortcuts to create a boundary.
+    - Right-click the boundary border to remove it.
+- **Summary (Brace) Mode**: Added support for creating summary braces for multiple selected nodes.
+    - *Note: Summary nodes are terminal and cannot support subsequent child nodes.*
+- **Rich Text Formatting**: Enabled markdown-style formatting within nodes, including **Bold**, *Italic*, `Inline Code`, and Code Blocks.
+- **Preview Window Pinning**: Added a "Pin" toggle to the preview window to prevent auto-closing.
+- **Navigation Shortcuts**: Added keyboard shortcuts for quickly expanding and collapsing child nodes.
+
+### Changed
+- **Keyboard Navigation**: Refined the algorithm for keyboard-based node traversal to improve focus accuracy and user experience.
+- **Visuals**: Optimized visual experience for navigating between nodes using arrow keys.
+
+### Fixed
+- Resolved inconsistencies and bugs related to the Zoom functionality.
+
 ## [1.1.0] - 2025-12-07
 
 ### Added

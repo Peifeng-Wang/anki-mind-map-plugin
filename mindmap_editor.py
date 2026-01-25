@@ -6,9 +6,12 @@ from aqt.qt import *
 from aqt.webview import AnkiWebView
 from aqt.qt import QDialog, QVBoxLayout
 from aqt.utils import showInfo
-from .note_manager import get_or_create_mindmap_model
 
 class MindMapDialog(QDialog):
+    PREVIEW_TOOLBAR_HEIGHT: int = 34
+    PREVIEW_TOOLBAR_MARGIN: int = 6
+    PREVIEW_TOOLBAR_SPACING: int = 6
+
     @classmethod
     def open_instance(cls, mw, note_id, focus_node_id=None):
         """Unified window management: open or focus existing mindmap window"""
@@ -315,11 +318,14 @@ class MindMapDialog(QDialog):
                 // Inject hotkey configuration
                 var hotkeyConfigFromPython = {json.dumps(config.get('hotkeys', {}))};
                 var lineColorFromPython = {json.dumps(config.get('line_color', 'rgba(139, 92, 246, 0.6)'))};
+                var braceColorFromPython = {json.dumps(config.get('brace_color', '#3b82f6'))};
+                var boundaryColorFromPython = {json.dumps(config.get('boundary_color', '#ef4444'))};
                 var enableFloatingNodesFromPython = {json.dumps(config.get('enable_floating_nodes', True))};
                 var initialJumpMode = {json.dumps(config.get('jump_mode', 'preview'))};
                 
                 if (hotkeyConfigFromPython && Object.keys(hotkeyConfigFromPython).length > 0) {{
-                    hotkeyConfig = hotkeyConfigFromPython;
+                    // Merge user config with defaults so new hotkeys get sensible fallbacks.
+                    hotkeyConfig = Object.assign({{}}, hotkeyConfig, hotkeyConfigFromPython);
                     console.log("Loaded hotkey config:", hotkeyConfig);
                 }}
                 
@@ -390,6 +396,29 @@ class MindMapDialog(QDialog):
             
             self.redo_shortcut_alt = QShortcut(QKeySequence("Ctrl+Shift+Z"), self)
             self.redo_shortcut_alt.activated.connect(lambda: self.web.eval("window.redo();"))
+
+            # Formatting shortcuts for node edit mode (configurable via add-on config.json -> hotkeys).
+            config = self.mw.addonManager.getConfig(__name__) or {}
+            hotkeys = config.get("hotkeys", {}) if isinstance(config, dict) else {}
+
+            def _bind_formatting_hotkey(config_key: str, action: str) -> None:
+                seq_str = hotkeys.get(config_key)
+                if not isinstance(seq_str, str) or not seq_str.strip():
+                    return
+
+                shortcut = QShortcut(QKeySequence(seq_str), self)
+                shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+                shortcut.activated.connect(
+                    lambda a=action: self.web.eval(
+                        f"window.applyTextFormatting && window.applyTextFormatting({json.dumps(a)});"
+                    )
+                )
+                setattr(self, f"{config_key}_shortcut", shortcut)
+
+            _bind_formatting_hotkey("bold", "bold")
+            _bind_formatting_hotkey("italic", "italic")
+            _bind_formatting_hotkey("inline_code", "inline_code")
+            _bind_formatting_hotkey("code_block", "code_block")
             
         except Exception as e:
             self.web.setHtml(f"<h1>Error loading assets: {e}</h1>")
@@ -407,6 +436,16 @@ class MindMapDialog(QDialog):
             self._handle_refresh()
         elif cmd == "toggle_fullscreen":
             self._handle_toggle_fullscreen()
+        elif cmd == "get_editable_maps":
+            self._handle_get_editable_maps()
+        elif cmd.startswith("create_map_link:"):
+            self._handle_create_map_link(cmd[16:])
+        elif cmd.startswith("jump_to_map:"):
+            self._handle_jump_to_map(cmd[12:])
+        elif cmd.startswith("delete_map_link:"):
+            self._handle_delete_map_link(cmd[16:])
+        elif cmd.startswith("unlink_map:"):
+            self._handle_unlink_map(cmd[11:])
         else:
             print(f"Unknown command: {cmd}")
     
@@ -613,11 +652,47 @@ class MindMapDialog(QDialog):
                 
                 layout = QVBoxLayout(dialog)
                 layout.setContentsMargins(0,0,0,0)
+                layout.setSpacing(0)
+
+                # Native toolbar so the user can pin/unpin the preview window (always on top).
+                toolbar = QWidget(dialog)
+                toolbar.setFixedHeight(self.PREVIEW_TOOLBAR_HEIGHT)
+                toolbar_layout = QHBoxLayout(toolbar)
+                toolbar_layout.setContentsMargins(
+                    self.PREVIEW_TOOLBAR_MARGIN,
+                    self.PREVIEW_TOOLBAR_MARGIN,
+                    self.PREVIEW_TOOLBAR_MARGIN,
+                    self.PREVIEW_TOOLBAR_MARGIN,
+                )
+                toolbar_layout.setSpacing(self.PREVIEW_TOOLBAR_SPACING)
+                toolbar_layout.addStretch(1)
+
+                pin_btn = QToolButton(toolbar)
+                pin_btn.setCheckable(True)
+                pin_btn.setToolTip("Always on top")
+                toolbar_layout.addWidget(pin_btn, 0, Qt.AlignmentFlag.AlignRight)
                 
                 from aqt.webview import AnkiWebView
                 dialog._web = AnkiWebView(parent=dialog)
                 dialog._web.set_bridge_command(self._on_preview_bridge_cmd, dialog)
+
+                layout.addWidget(toolbar)
                 layout.addWidget(dialog._web)
+
+                def apply_pinned_state(checked: bool) -> None:
+                    self._set_window_always_on_top(dialog, checked)
+                    cfg = self.mw.addonManager.getConfig(__name__) or {}
+                    cfg["preview_pinned"] = bool(checked)
+                    self.mw.addonManager.writeConfig(__name__, cfg)
+                    pin_btn.setText("Unpin" if checked else "Pin")
+
+                # Restore last pin state for this preview window.
+                cfg = self.mw.addonManager.getConfig(__name__) or {}
+                pinned = bool(cfg.get("preview_pinned", False))
+                pin_btn.setChecked(pinned)
+                pin_btn.setText("Unpin" if pinned else "Pin")
+                apply_pinned_state(pinned)
+                pin_btn.toggled.connect(apply_pinned_state)
                 
                 self.finished.connect(dialog.close)
                 self._preview_dialog = dialog
@@ -636,6 +711,22 @@ class MindMapDialog(QDialog):
         except Exception as e:
             from aqt.utils import showInfo
             showInfo(f"Preview error: {e}")                        
+
+    def _set_window_always_on_top(self, window: QWidget, enabled: bool) -> None:
+        """Toggle the native always-on-top flag and keep the window stable."""
+        flags = window.windowFlags()
+        if enabled:
+            flags |= Qt.WindowType.WindowStaysOnTopHint
+        else:
+            flags &= ~Qt.WindowType.WindowStaysOnTopHint
+
+        was_visible = window.isVisible()
+        window.setWindowFlags(flags)
+        if was_visible:
+            # Re-show is required for some platforms for new flags to take effect.
+            window.show()
+            window.raise_()
+            window.activateWindow()
 
     def _handle_toggle_fullscreen(self):
         """Toggle fullscreen mode"""
@@ -716,7 +807,7 @@ class MindMapDialog(QDialog):
                     print(f"Error cleaning card {nid}: {e}")
             
             # Part 2: Clean up noteId from nodes whose cards are deleted
-            orphaned_note_ids = []
+            orphaned_node_ids = []
             for node_id, note_id in nodes_with_note_ids.items():
                 try:
                     # Try to get the card
@@ -730,17 +821,17 @@ class MindMapDialog(QDialog):
                     
                     if not has_link:
                         # Card exists but link was removed, clean up noteId
-                        orphaned_note_ids.append(node_id)
+                        orphaned_node_ids.append(node_id)
                         
                 except Exception:
                     # Card doesn't exist, mark for cleanup
-                    orphaned_note_ids.append(node_id)
+                    orphaned_node_ids.append(node_id)
             
             # Remove noteId from nodes
-            if orphaned_note_ids:
+            if orphaned_node_ids:
                 def remove_note_ids(node):
                     if isinstance(node, dict):
-                        if 'id' in node and node['id'] in orphaned_note_ids:
+                        if 'id' in node and node['id'] in orphaned_node_ids:
                             if 'noteId' in node:
                                 del node['noteId']
                                 print(f"Removed orphaned noteId from node {node['id']}")
@@ -750,12 +841,36 @@ class MindMapDialog(QDialog):
                 
                 if 'data' in data:
                     remove_note_ids(data['data'])
-                    # Save the updated mindmap
-                    self.note['Data'] = json.dumps(data)
-                    self.mw.col.update_note(self.note)
+                    
+                    # Part 3: Delete nodes whose linked cards are deleted
+                    deleted_count = 0
             
-            if cleaned_card_count > 0 or orphaned_note_ids:
-                print(f"Cleanup complete: {cleaned_card_count} card links removed, {len(orphaned_note_ids)} node noteIds removed")
+                    def delete_orphaned_nodes(node, parent_children=None, index=None):
+                        nonlocal deleted_count
+                        if isinstance(node, dict):
+                            node_id = node.get('id')
+                            # Delete this node if it's orphaned
+                            if node_id in orphaned_node_ids:
+                                if parent_children is not None and index is not None:
+                                    parent_children.pop(index)
+                                    deleted_count += 1
+                                    print(f"Deleted orphaned node {node_id}")
+                                    return True
+                            # Recursively check children
+                            if 'children' in node:
+                                for i in range(len(node['children']) - 1, -1, -1):
+                                    delete_orphaned_nodes(node['children'][i], node['children'], i)
+                        return False
+            
+                    if 'data' in data:
+                        delete_orphaned_nodes(data['data'])
+                        if deleted_count > 0 or orphaned_node_ids:
+                            self.note['Data'] = json.dumps(data)
+                            self.mw.col.update_note(self.note)
+                            print(f"Deleted {deleted_count} orphaned nodes, cleaned up {len(orphaned_node_ids)} noteId references")
+            
+            if cleaned_card_count > 0 or orphaned_node_ids:
+                print(f"Cleanup complete: {cleaned_card_count} card links removed, {len(orphaned_node_ids)} orphaned references found")
                 
         except Exception as e:
             print(f"Error during cleanup: {e}")
@@ -767,19 +882,24 @@ class MindMapDialog(QDialog):
             data = payload.get("data")
             image_html = payload.get("image_html")
             floating_nodes = payload.get("floatingNodes", [])
+            summary_braces = payload.get("summaryBraces", [])
+            boundary_data = payload.get("boundaries", [])
             changed_nodes = payload.get("changedNodes", [])  # Added: receive changed nodes
             
             print(f"DEBUG: Received changed_nodes: {changed_nodes}")
             
-            # Combine mind map data with floating nodes
+            # Combine mind map data with floating nodes, summary braces, and boundaries
             if data:
                 if isinstance(data, dict):
                     data['floatingNodes'] = floating_nodes
+                    data['summaryBraces'] = summary_braces
+                    data['boundaries'] = boundary_data
                 # Log data to save before saving (for debugging)
                 new_data_json = json.dumps(data)
                 print(f"DEBUG: About to save data, length: {len(new_data_json)}, root topic: {data.get('data', {}).get('topic', 'N/A')}")
                 
                 self.note['Data'] = new_data_json
+
             
             if image_html:
                 self.note['DisplayHTML'] = f"<div class='mindmap-static'>{image_html}</div>"
@@ -803,6 +923,8 @@ class MindMapDialog(QDialog):
             if changed_nodes:
                 print(f"DEBUG: Syncing {len(changed_nodes)} changed nodes to cards")
                 self._sync_nodes_to_cards(changed_nodes)
+                # Also sync map-linked nodes
+                self._sync_map_linked_nodes(changed_nodes)
             else:
                 print("DEBUG: No changed nodes to sync")
             
@@ -875,6 +997,99 @@ class MindMapDialog(QDialog):
             finally:
                 card_linker._syncing_from_node = False
 
+    def _sync_map_linked_nodes(self, changed_nodes):
+        """Sync changes from map-linked nodes to their source maps"""
+        # Load current map data to check for map link properties
+        try:
+            data_str = self.note['Data']
+            current_data = json.loads(data_str)
+        except Exception as e:
+            print(f"Error loading current map data for sync: {e}")
+            return
+        
+        # Build index of nodes with map link properties
+        map_link_nodes = {}
+        
+        def collect_map_link_nodes(node):
+            if isinstance(node, dict):
+                node_id = node.get('id')
+                if node.get('isMapLink') and node.get('sourceMapId'):
+                    map_link_nodes[node_id] = {
+                        'sourceMapId': node.get('sourceMapId'),
+                        'sourceNodeId': node.get('sourceNodeId', 'root')
+                    }
+                if 'children' in node:
+                    for child in node['children']:
+                        collect_map_link_nodes(child)
+        
+        if 'data' in current_data:
+            collect_map_link_nodes(current_data['data'])
+        
+        # Also check root node for linkedMaps (sync content from root to linked nodes)
+        root_node = current_data.get('data', {})
+        root_linked_maps = root_node.get('linkedMaps', [])
+        
+        for node_info in changed_nodes:
+            node_id = node_info.get('id')
+            new_topic = node_info.get('topic', '')
+            
+            if not node_id or not new_topic:
+                continue
+            
+            # Case 1: This is a map-linked node - sync to source map's root
+            if node_id in map_link_nodes:
+                link_info = map_link_nodes[node_id]
+                source_map_id = link_info['sourceMapId']
+                self._sync_map_link_content(node_id, new_topic, source_map_id)
+            
+            # Case 2: This is the root node with linkedMaps - sync to all linked nodes
+            if node_id == 'root' and root_linked_maps:
+                for link in root_linked_maps:
+                    target_map_id = link.get('targetMapId')
+                    linked_node_id = link.get('linkedNodeId')
+                    if target_map_id and linked_node_id:
+                        self._sync_to_linked_node(target_map_id, linked_node_id, new_topic)
+
+    def _sync_to_linked_node(self, target_map_id: int, linked_node_id: str, new_topic: str):
+        """Sync content from root to a linked node in another map"""
+        try:
+            target_note = self.mw.col.get_note(target_map_id)
+            target_data_str = target_note['Data']
+            target_data = json.loads(target_data_str)
+            
+            modified = False
+            
+            def update_node(node):
+                nonlocal modified
+                if isinstance(node, dict):
+                    if node.get('id') == linked_node_id:
+                        if node.get('topic') != new_topic:
+                            node['topic'] = new_topic
+                            modified = True
+                            return True
+                    if 'children' in node:
+                        for child in node['children']:
+                            if update_node(child):
+                                return True
+                return False
+            
+            if 'data' in target_data:
+                update_node(target_data['data'])
+            
+            if modified:
+                target_note['Data'] = json.dumps(target_data)
+                self.mw.col.update_note(target_note)
+                print(f"Synced root content to linked node {linked_node_id} in map {target_map_id}")
+                
+                # Notify open target map window to refresh if exists
+                if hasattr(self.mw, 'mindmap_editors'):
+                    for editor in self.mw.mindmap_editors:
+                        if editor.note_id == target_map_id:
+                            editor._handle_refresh()
+                            break
+        except Exception as e:
+            print(f"Error syncing to linked node: {e}")
+
     def _handle_refresh(self):
         """Refresh mindmap data"""
         try:
@@ -910,6 +1125,312 @@ class MindMapDialog(QDialog):
             print(f"Error refreshing: {e}")
             import traceback
             traceback.print_exc()
+
+    def _handle_get_editable_maps(self):
+        """Get list of editable mind maps for the selection dialog, including linked status"""
+        try:
+            maps_list = []
+            ids = self.mw.col.find_notes('"note:MindMap Master"')
+            
+            # Get current linked maps from source root
+            linked_map_ids = set()
+            try:
+                data_str = self.note['Data']
+                source_data = json.loads(data_str)
+                source_root = source_data.get('data', {})
+                linked_maps = source_root.get('linkedMaps', [])
+                for link in linked_maps:
+                    linked_map_ids.add(link.get('targetMapId'))
+            except Exception as e:
+                print(f"Error getting linked maps: {e}")
+            
+            for nid in ids:
+                # Skip current map
+                if nid == self.note_id:
+                    continue
+                note = self.mw.col.get_note(nid)
+                # Only include active (editable) maps
+                try:
+                    allow_new = note['AllowNewCards']
+                except KeyError:
+                    allow_new = '1'
+                if allow_new == '1':
+                    maps_list.append({
+                        'id': nid,
+                        'title': note['Title'],
+                        'isLinked': nid in linked_map_ids
+                    })
+            # Send list to JavaScript
+            js_code = f"if(typeof onEditableMapsReceived === 'function') onEditableMapsReceived({json.dumps(maps_list)});"
+            self.web.eval(js_code)
+        except Exception as e:
+            print(f"Error getting editable maps: {e}")
+
+    def _handle_create_map_link(self, params_json: str):
+        """Create a bidirectional link between this map's root and another map"""
+        try:
+            params = json.loads(params_json)
+            target_map_id = params.get('targetMapId')
+            
+            if not target_map_id:
+                print("Error: No target map ID provided")
+                return
+            
+            # Load current map data
+            data_str = self.note['Data']
+            source_data = json.loads(data_str)
+            source_root = source_data.get('data', {})
+            root_topic = source_root.get('topic', 'Linked Node')
+            
+            # Generate new node ID for the linked node in target map
+            import uuid
+            linked_node_id = f"maplink_{uuid.uuid4().hex[:8]}"
+            
+            # Load target map
+            target_note = self.mw.col.get_note(target_map_id)
+            target_data_str = target_note['Data']
+            target_data = json.loads(target_data_str)
+            target_root = target_data.get('data', {})
+            
+            # Create linked node in target map (copy style from source root)
+            linked_node = {
+                "id": linked_node_id,
+                "topic": root_topic,
+                "direction": "right",
+                "expanded": True,
+                "isMapLink": True,
+                "sourceMapId": self.note_id,
+                "sourceNodeId": "root"
+            }
+            
+            # Copy style properties from source root to linked node
+            style_props = ['background-color', 'foreground-color', 'width', 'height', 
+                          'font-size', 'font-weight', 'font-style']
+            for prop in style_props:
+                if prop in source_root:
+                    linked_node[prop] = source_root[prop]
+            
+            # Add to target root's children
+            if 'children' not in target_root:
+                target_root['children'] = []
+            target_root['children'].append(linked_node)
+            
+            # Save target map
+            target_note['Data'] = json.dumps(target_data)
+            self.mw.col.update_note(target_note)
+            
+            # Update source root with link info (include title for display)
+            if 'linkedMaps' not in source_root:
+                source_root['linkedMaps'] = []
+            source_root['linkedMaps'].append({
+                "targetMapId": target_map_id,
+                "targetMapTitle": target_note['Title'],
+                "linkedNodeId": linked_node_id
+            })
+            
+            # Save source map
+            self.note['Data'] = json.dumps(source_data)
+            self.mw.col.update_note(self.note)
+            
+            # Notify JavaScript of success
+            self.web.eval(f"if(typeof onMapLinkCreated === 'function') onMapLinkCreated({target_map_id}, '{linked_node_id}');")
+            self.web.eval("if(typeof showToast === 'function') showToast('Link created!');")
+            
+            # Refresh source map to show updated link indicator
+            self._handle_refresh()
+            
+            # Refresh target map window if open to show the new linked node
+            if hasattr(self.mw, 'mindmap_editors'):
+                for editor in self.mw.mindmap_editors:
+                    if editor.note_id == target_map_id:
+                        editor._handle_refresh()
+                        print(f"Refreshed target map window {target_map_id}")
+                        break
+            
+            print(f"Created map link: {self.note_id} -> {target_map_id} (node: {linked_node_id})")
+            
+        except Exception as e:
+            print(f"Error creating map link: {e}")
+            import traceback
+            traceback.print_exc()
+            self.web.eval(f"if(typeof showToast === 'function') showToast('Error: {e}');")
+
+    def _handle_jump_to_map(self, params_json: str):
+        """Jump to another mind map, optionally focusing on a specific node"""
+        try:
+            params = json.loads(params_json)
+            target_map_id = params.get('targetMapId')
+            focus_node_id = params.get('focusNodeId', None)
+            
+            if not target_map_id:
+                print("Error: No target map ID provided")
+                return
+            
+            # Use open_instance to open or focus the target map
+            MindMapDialog.open_instance(self.mw, target_map_id, focus_node_id)
+            
+        except Exception as e:
+            print(f"Error jumping to map: {e}")
+
+    def _handle_delete_map_link(self, params_json: str):
+        """Handle deletion of a map link node - clean up the link in source map"""
+        try:
+            params = json.loads(params_json)
+            source_map_id = params.get('sourceMapId')
+            linked_node_id = params.get('linkedNodeId')
+            
+            if not source_map_id:
+                print("Error: No source map ID provided")
+                return
+            
+            # Load source map and remove the link reference
+            try:
+                source_note = self.mw.col.get_note(source_map_id)
+                source_data_str = source_note['Data']
+                source_data = json.loads(source_data_str)
+                source_root = source_data.get('data', {})
+                
+                # Remove from linkedMaps array
+                if 'linkedMaps' in source_root:
+                    source_root['linkedMaps'] = [
+                        link for link in source_root['linkedMaps']
+                        if link.get('linkedNodeId') != linked_node_id
+                    ]
+                    # Clean up empty array
+                    if not source_root['linkedMaps']:
+                        del source_root['linkedMaps']
+                
+                # Save source map
+                source_note['Data'] = json.dumps(source_data)
+                self.mw.col.update_note(source_note)
+                
+                print(f"Cleaned up map link in source map {source_map_id}")
+                
+                # Notify open source map window to refresh if exists
+                if hasattr(self.mw, 'mindmap_editors'):
+                    for editor in self.mw.mindmap_editors:
+                        if editor.note_id == source_map_id:
+                            editor._handle_refresh()
+                            break
+                
+            except Exception as e:
+                print(f"Source map {source_map_id} no longer exists or error: {e}")
+            
+        except Exception as e:
+            print(f"Error deleting map link: {e}")
+
+    def _handle_unlink_map(self, params_json: str):
+        """Remove a link from this map's root and delete the linked node in target map"""
+        try:
+            params = json.loads(params_json)
+            target_map_id = params.get('targetMapId')
+            
+            if not target_map_id:
+                print("Error: No target map ID provided")
+                return
+            
+            # Load current map data
+            data_str = self.note['Data']
+            source_data = json.loads(data_str)
+            source_root = source_data.get('data', {})
+            
+            # Find and remove the link to target map
+            linked_node_id = None
+            if 'linkedMaps' in source_root:
+                for link in source_root['linkedMaps']:
+                    if link.get('targetMapId') == target_map_id:
+                        linked_node_id = link.get('linkedNodeId')
+                        break
+                
+                # Remove from linkedMaps array
+                source_root['linkedMaps'] = [
+                    link for link in source_root['linkedMaps']
+                    if link.get('targetMapId') != target_map_id
+                ]
+                if not source_root['linkedMaps']:
+                    del source_root['linkedMaps']
+            
+            # Save source map
+            self.note['Data'] = json.dumps(source_data)
+            self.mw.col.update_note(self.note)
+            
+            # Delete the linked node from target map
+            if linked_node_id:
+                try:
+                    target_note = self.mw.col.get_note(target_map_id)
+                    target_data_str = target_note['Data']
+                    target_data = json.loads(target_data_str)
+                    
+                    # Recursively find and remove the linked node
+                    def remove_node(node, parent_children_list=None, index=None):
+                        if isinstance(node, dict):
+                            if node.get('id') == linked_node_id:
+                                if parent_children_list is not None and index is not None:
+                                    parent_children_list.pop(index)
+                                    return True
+                            if 'children' in node:
+                                for i, child in enumerate(list(node['children'])):
+                                    if remove_node(child, node['children'], i):
+                                        return True
+                        return False
+                    
+                    if 'data' in target_data:
+                        remove_node(target_data['data'])
+                    
+                    # Save target map
+                    target_note['Data'] = json.dumps(target_data)
+                    self.mw.col.update_note(target_note)
+                    
+                    print(f"Removed linked node {linked_node_id} from target map {target_map_id}")
+                    
+                    # Refresh target map window if open
+                    if hasattr(self.mw, 'mindmap_editors'):
+                        for editor in self.mw.mindmap_editors:
+                            if editor.note_id == target_map_id:
+                                editor._handle_refresh()
+                                break
+                    
+                except Exception as e:
+                    print(f"Error removing linked node from target map: {e}")
+            
+            # Refresh source map
+            self._handle_refresh()
+            
+            self.web.eval("if(typeof showToast === 'function') showToast('Link removed');")
+            print(f"Unlinked map {target_map_id} from {self.note_id}")
+            
+        except Exception as e:
+            print(f"Error unlinking map: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _sync_map_link_content(self, node_id: str, new_topic: str, source_map_id: int):
+        """Sync content changes from a linked node to the source map's root"""
+        try:
+            source_note = self.mw.col.get_note(source_map_id)
+            source_data_str = source_note['Data']
+            source_data = json.loads(source_data_str)
+            source_root = source_data.get('data', {})
+            
+            # Update source root topic
+            if source_root.get('topic') != new_topic:
+                source_root['topic'] = new_topic
+                source_note['Data'] = json.dumps(source_data)
+                
+                # Also update Title field
+                source_note['Title'] = new_topic
+                
+                self.mw.col.update_note(source_note)
+                print(f"Synced linked node content to source map {source_map_id}: '{new_topic}'")
+                
+                # Notify open source map window to refresh if exists
+                if hasattr(self.mw, 'mindmap_editors'):
+                    for editor in self.mw.mindmap_editors:
+                        if editor.note_id == source_map_id:
+                            editor._handle_refresh()
+                            break
+        except Exception as e:
+            print(f"Error syncing map link content: {e}")
 
     def closeEvent(self, event):
         event.accept()

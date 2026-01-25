@@ -4,7 +4,6 @@ Provides export/import functionality to ensure data safety
 """
 import json
 import os
-from datetime import datetime
 from aqt import mw
 from aqt.qt import QDialog, QVBoxLayout, QPushButton, QTextEdit, QHBoxLayout, QFileDialog
 from aqt.utils import showInfo, tooltip
