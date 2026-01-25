@@ -32,4 +32,4 @@
 - Optimized **Node Movement Logic** for smoother interaction and dragging.
 - Optimized **Node Zoom Logic** (e.g., handling zoom in the view provider).
 - Refined **Scrollbar Styles** for a modern, custom appearance.
-- Updated various **Icons/Visual Indicators** within the Mind Map editor interface.
+- Updated various **Icons/Visual Indicators** within the Mind Map editor interface. 
