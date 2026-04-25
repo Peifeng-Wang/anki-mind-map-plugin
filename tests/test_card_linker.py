@@ -163,6 +163,15 @@ class FakeModels:
         self.saved.append(model)
 
 
+class FakeDB:
+    def __init__(self, collection):
+        self.collection = collection
+
+    def list(self, query, *args):
+        # Simulate "select id from notes where id in (...)"
+        return [nid for nid in args if nid in self.collection.notes]
+
+
 class FakeCollection:
     def __init__(self, notes=None, models=None):
         self.notes = notes or {}
@@ -170,6 +179,7 @@ class FakeCollection:
         self.added_notes = []
         self.updated_notes = []
         self.removed_notes = []
+        self.db = FakeDB(self)
 
     def get_note(self, note_id):
         return self.notes[note_id]
@@ -295,6 +305,15 @@ class TestUtilityFunctions(unittest.TestCase):
     def test_find_node_by_id_missing(self):
         root = {"id": "root", "children": []}
         self.assertIsNone(self.cl.find_node_by_id(root, "missing"))
+
+    def test_build_node_index(self):
+        child = {"id": "child", "children": [{"id": "grandchild"}]}
+        root = {"id": "root", "children": [child]}
+        index = self.cl.build_node_index(root)
+        self.assertEqual(len(index), 3)
+        self.assertIs(index["root"], root)
+        self.assertIs(index["child"], child)
+        self.assertEqual(index["grandchild"]["id"], "grandchild")
 
     def test_parse_mindmap_link_found(self):
         html = '<div id="mindmap-link" data-mid="123" data-nid="node_abc" style="display:none;"></div>'
@@ -563,6 +582,37 @@ class TestDeleteNodeFromMindmap(unittest.TestCase):
         self.assertEqual(len(self.mw.col.updated_notes), 0)
 
 
+class TestDeleteNodesFromMindmap(unittest.TestCase):
+    def setUp(self):
+        self.mw, self.utils, self.hooks = install_anki_stubs()
+        for key in list(sys.modules):
+            if key.startswith(f"{PACKAGE_NAME}."):
+                sys.modules.pop(key)
+        self.cl = import_plugin_module("card_linker")
+
+    def test_delete_multiple_nodes(self):
+        mindmap = FakeNote(10, Title="Map", Data=json.dumps({"data": {"id": "root", "children": [{"id": "n1"}, {"id": "n2", "children": [{"id": "n3"}]}]}}))
+        self.mw.col = FakeCollection(notes={10: mindmap})
+        self.cl.delete_nodes_from_mindmap(10, {"n1", "n3"})
+        self.assertEqual(len(self.mw.col.updated_notes), 1)
+        data = json.loads(self.mw.col.updated_notes[0]["Data"])
+        children = data["data"]["children"]
+        self.assertEqual(len(children), 1)
+        self.assertEqual(children[0]["id"], "n2")
+        self.assertEqual(children[0].get("children", []), [])
+
+    def test_delete_empty_set_noop(self):
+        mindmap = FakeNote(10, Title="Map", Data=json.dumps({"data": {"id": "root", "children": [{"id": "n1"}]}}))
+        self.mw.col = FakeCollection(notes={10: mindmap})
+        self.cl.delete_nodes_from_mindmap(10, set())
+        self.assertEqual(len(self.mw.col.updated_notes), 0)
+
+    def test_missing_mindmap_no_crash(self):
+        self.mw.col = FakeCollection(notes={})
+        self.cl.delete_nodes_from_mindmap(99, {"n1"})
+        self.assertEqual(len(self.mw.col.updated_notes), 0)
+
+
 class TestOnNoteAdded(unittest.TestCase):
     def setUp(self):
         self.mw, self.utils, self.hooks = install_anki_stubs()
@@ -626,6 +676,16 @@ class TestOnNotesWillBeDeleted(unittest.TestCase):
         card = FakeNote(1, Front="Q", Back='<div id="mindmap-link" data-mid="10" data-nid="n1" style="display:none;"></div>')
         self.mw.col = FakeCollection(notes={10: mindmap, 1: card})
         self.cl.on_notes_will_be_deleted(self.mw.col, [1])
+        self.assertEqual(len(self.mw.col.updated_notes), 1)
+        data = json.loads(self.mw.col.updated_notes[0]["Data"])
+        self.assertEqual(data["data"]["children"], [])
+
+    def test_batch_deletes_multiple_nodes_same_map(self):
+        mindmap = FakeNote(10, Title="Map", Data=json.dumps({"data": {"id": "root", "children": [{"id": "n1"}, {"id": "n2"}]}}))
+        card1 = FakeNote(1, Front="Q", Back='<div id="mindmap-link" data-mid="10" data-nid="n1" style="display:none;"></div>')
+        card2 = FakeNote(2, Front="Q", Back='<div id="mindmap-link" data-mid="10" data-nid="n2" style="display:none;"></div>')
+        self.mw.col = FakeCollection(notes={10: mindmap, 1: card1, 2: card2})
+        self.cl.on_notes_will_be_deleted(self.mw.col, [1, 2])
         self.assertEqual(len(self.mw.col.updated_notes), 1)
         data = json.loads(self.mw.col.updated_notes[0]["Data"])
         self.assertEqual(data["data"]["children"], [])

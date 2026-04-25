@@ -110,6 +110,20 @@ def extract_first_line(html_text):
     return text.split('\n')[0].strip()
 
 
+def build_node_index(root):
+    """Build a flat dict mapping node_id -> node for O(1) lookups."""
+    index = {}
+    def _build(node):
+        if isinstance(node, dict):
+            node_id = node.get('id')
+            if node_id is not None:
+                index[node_id] = node
+            for child in node.get('children', []):
+                _build(child)
+    _build(root)
+    return index
+
+
 def find_node_by_id(root, node_id):
     """Recursively find a node by ID in a mind map tree."""
     if isinstance(root, dict):
@@ -297,14 +311,12 @@ def clear_mindmap_selection(editor):
             node_id = None
 
             for field_name in editor.note.keys():
-                link = parse_mindmap_link(editor.note[field_name])
-                if link:
-                    mindmap_id, node_id = link
-                    break
-
-            for field_name in editor.note.keys():
                 field_content = editor.note[field_name]
                 if 'mindmap-link' in field_content:
+                    if mindmap_id is None:
+                        link = parse_mindmap_link(field_content)
+                        if link:
+                            mindmap_id, node_id = link
                     new_content = MINDMAP_LINK_DIV_RE.sub('', field_content)
                     if new_content != field_content:
                         editor.note[field_name] = new_content
@@ -432,21 +444,25 @@ def _find_special_boundary(boundaries):
     return None
 
 
-def _validate_boundary_node_ids(node_ids, root):
+def _validate_boundary_node_ids(node_ids, root, node_index=None):
     """Return a list of node IDs that actually exist in the mindmap tree."""
     valid = []
     for node_id in node_ids:
         if not isinstance(node_id, str):
             logger.warning("node ID %s is not a string, type: %s", node_id, type(node_id))
             continue
-        if find_node_by_id(root, node_id):
+        if node_index is not None:
+            found = node_id in node_index
+        else:
+            found = find_node_by_id(root, node_id) is not None
+        if found:
             valid.append(node_id)
         else:
             logger.debug("Node %s NOT FOUND in mindmap", node_id)
     return valid
 
 
-def get_special_boundary_info(mindmap_data):
+def get_special_boundary_info(mindmap_data, node_index=None):
     """Find special boundary in mindmap data and return its node IDs."""
     try:
         boundaries = _extract_boundaries(mindmap_data)
@@ -468,7 +484,7 @@ def get_special_boundary_info(mindmap_data):
             return None
 
         root = get_root_node(mindmap_data)
-        valid_ids = _validate_boundary_node_ids(node_ids, root)
+        valid_ids = _validate_boundary_node_ids(node_ids, root, node_index)
         if not valid_ids:
             logger.warning("None of the special boundary node IDs exist in the mindmap")
             return None
@@ -481,7 +497,7 @@ def get_special_boundary_info(mindmap_data):
     return None
 
 
-def find_parent_for_new_node(mindmap_data, special_node_ids=None):
+def find_parent_for_new_node(mindmap_data, special_node_ids=None, node_index=None):
     """Find the appropriate parent node for a new linked card node."""
     root = get_root_node(mindmap_data)
     if not root:
@@ -493,7 +509,7 @@ def find_parent_for_new_node(mindmap_data, special_node_ids=None):
         return root, -1
 
     for node_id in special_node_ids:
-        node = find_node_by_id(root, node_id)
+        node = node_index.get(node_id) if node_index else find_node_by_id(root, node_id)
         if node:
             logger.debug("find_parent_for_new_node: Selected node from special boundary: %s", node.get('id'))
             return node, -1
@@ -506,10 +522,13 @@ def find_parent_for_new_node(mindmap_data, special_node_ids=None):
 
 # --- link_existing_card_to_mindmap refactor (P1) ---
 
-def _update_existing_node(card_note, mindmap_data, existing_node_id, first_line):
+def _update_existing_node(card_note, mindmap_data, existing_node_id, first_line, node_index=None):
     """Update an existing mindmap node with the card's noteId and topic."""
-    root = get_root_node(mindmap_data)
-    node = find_node_by_id(root, existing_node_id)
+    if node_index is not None:
+        node = node_index.get(existing_node_id)
+    else:
+        root = get_root_node(mindmap_data)
+        node = find_node_by_id(root, existing_node_id)
     if node:
         node['noteId'] = card_note.id
         node['topic'] = first_line
@@ -517,7 +536,7 @@ def _update_existing_node(card_note, mindmap_data, existing_node_id, first_line)
     return False
 
 
-def _create_new_node_in_mindmap(card_note, mindmap_data, special_node_ids):
+def _create_new_node_in_mindmap(card_note, mindmap_data, special_node_ids, node_index=None):
     """Create a new node in the mindmap for the card and return its ID."""
     new_node_id = f"node_{uuid.uuid4().hex[:8]}"
     first_line = extract_first_line(card_note.get('Front', ''))
@@ -532,7 +551,7 @@ def _create_new_node_in_mindmap(card_note, mindmap_data, special_node_ids):
         "noteId": card_note.id,
     }
 
-    parent, _ = find_parent_for_new_node(mindmap_data, special_node_ids)
+    parent, _ = find_parent_for_new_node(mindmap_data, special_node_ids, node_index)
     if not parent:
         parent = get_root_node(mindmap_data)
     if 'children' not in parent:
@@ -561,18 +580,20 @@ def link_existing_card_to_mindmap(card_note, mindmap_id, mindmap_title):
 
         mindmap_note = mw.col.get_note(mindmap_id)
         data = json.loads(mindmap_note['Data'])
+        root = get_root_node(data)
+        node_index = build_node_index(root)
         boundaries = data.get('boundaries', [])
-        special_node_ids = get_special_boundary_info(data)
+        special_node_ids = get_special_boundary_info(data, node_index)
         logger.debug("link_existing_card_to_mindmap: special_node_ids = %s", special_node_ids)
 
         if has_existing_link and existing_node_id:
-            if _update_existing_node(card_note, data, existing_node_id, first_line):
+            if _update_existing_node(card_note, data, existing_node_id, first_line, node_index):
                 if boundaries:
                     data['boundaries'] = boundaries
                 mindmap_note['Data'] = json.dumps(data)
                 mw.col.update_note(mindmap_note)
         else:
-            new_node_id = _create_new_node_in_mindmap(card_note, data, special_node_ids)
+            new_node_id = _create_new_node_in_mindmap(card_note, data, special_node_ids, node_index)
             if boundaries:
                 data['boundaries'] = boundaries
                 logger.debug("link_existing_card_to_mindmap: Saving %s boundaries", len(boundaries))
@@ -593,44 +614,54 @@ def link_existing_card_to_mindmap(card_note, mindmap_id, mindmap_title):
         showInfo(f"Error linking card to mindmap: {exc}")
 
 
-def delete_node_from_mindmap(mindmap_id, node_id):
-    """Delete a node from mindmap when card link is removed."""
+def delete_nodes_from_mindmap(mindmap_id, node_ids):
+    """Delete one or more nodes from a mindmap in a single update."""
+    if not node_ids:
+        return
     try:
-        try:
-            mindmap_note = mw.col.get_note(mindmap_id)
-        except Exception as exc:
-            logger.warning("Mindmap %s not found, skipping node deletion: %s", mindmap_id, exc)
-            return
-
-        data = json.loads(mindmap_note['Data'])
-        deleted_count = 0
-
-        def _delete_node(node, parent_children=None, index=None):
-            nonlocal deleted_count
-            if isinstance(node, dict):
-                if node.get('id') == node_id:
-                    if parent_children is not None and index is not None:
-                        parent_children.pop(index)
-                        deleted_count += 1
-                        logger.info("Deleted node %s from mindmap %s", node_id, mindmap_id)
-                        return True
-                if 'children' in node:
-                    for i in range(len(node['children']) - 1, -1, -1):
-                        _delete_node(node['children'][i], node['children'], i)
-            return False
-
-        root = get_root_node(data)
-        _delete_node(root)
-
-        if deleted_count > 0:
-            mindmap_note['Data'] = json.dumps(data)
-            mw.col.update_note(mindmap_note)
-            logger.info("Successfully deleted node %s from mindmap %s", node_id, mindmap_id)
-        else:
-            logger.info("Node %s not found in mindmap %s", node_id, mindmap_id)
-
+        mindmap_note = mw.col.get_note(mindmap_id)
     except Exception as exc:
-        logger.exception("Error deleting node %s from mindmap %s: %s", node_id, mindmap_id, exc)
+        logger.warning("Mindmap %s not found, skipping node deletion: %s", mindmap_id, exc)
+        return
+
+    data = json.loads(mindmap_note['Data'])
+    root = get_root_node(data)
+    deleted_count = 0
+
+    # Iterative bottom-up rebuild of children lists
+    stack = [(root, False)]
+    while stack:
+        node, visited = stack.pop()
+        if not isinstance(node, dict):
+            continue
+        if not visited:
+            stack.append((node, True))
+            for child in node.get('children', []):
+                stack.append((child, False))
+        else:
+            children = node.get('children', [])
+            if children:
+                new_children = []
+                for child in children:
+                    if isinstance(child, dict) and child.get('id') in node_ids:
+                        deleted_count += 1
+                        logger.info("Deleted node %s from mindmap %s", child.get('id'), mindmap_id)
+                    else:
+                        new_children.append(child)
+                if len(new_children) != len(children):
+                    node['children'] = new_children
+
+    if deleted_count > 0:
+        mindmap_note['Data'] = json.dumps(data)
+        mw.col.update_note(mindmap_note)
+        logger.info("Successfully deleted %s nodes from mindmap %s", deleted_count, mindmap_id)
+    else:
+        logger.info("Nodes %s not found in mindmap %s", node_ids, mindmap_id)
+
+
+def delete_node_from_mindmap(mindmap_id, node_id):
+    """Delete a single node from mindmap when card link is removed."""
+    delete_nodes_from_mindmap(mindmap_id, {node_id})
 
 
 def add_editor_button(buttons, editor):
@@ -662,8 +693,10 @@ def on_note_added(note):
     try:
         mindmap_note = mw.col.get_note(mindmap_id)
         data = json.loads(mindmap_note['Data'])
+        root = get_root_node(data)
+        node_index = build_node_index(root)
         boundaries = data.get('boundaries', [])
-        special_node_ids = get_special_boundary_info(data)
+        special_node_ids = get_special_boundary_info(data, node_index)
 
         new_node_id = f"node_{uuid.uuid4().hex[:8]}"
         new_node = {
@@ -674,9 +707,9 @@ def on_note_added(note):
             "noteId": note.id,
         }
 
-        parent, _ = find_parent_for_new_node(data, special_node_ids)
+        parent, _ = find_parent_for_new_node(data, special_node_ids, node_index)
         if not parent:
-            parent = get_root_node(data)
+            parent = root
         if 'children' not in parent:
             parent['children'] = []
         parent['children'].append(new_node)
@@ -708,26 +741,42 @@ def validate_and_cleanup_mindmap(mindmap_note):
     """Validate and cleanup nodes in mindmap - remove noteId if card doesn't exist."""
     try:
         data = json.loads(mindmap_note['Data'])
+        root = get_root_node(data)
+
+        # Collect all noteIds in one pass
+        note_ids = []
+        def collect(node):
+            if isinstance(node, dict):
+                nid = node.get('noteId')
+                if nid is not None:
+                    note_ids.append(nid)
+                for child in node.get('children', []):
+                    collect(child)
+        collect(root)
+
+        # Batch check existence with a single SQL query
+        existing_ids = set()
+        if note_ids:
+            placeholders = ','.join('?' * len(note_ids))
+            existing_ids = set(mw.col.db.list(
+                f"select id from notes where id in ({placeholders})", *note_ids
+            ))
+
+        # Remove orphaned noteIds
         modified = False
         removed_count = 0
-
-        def cleanup_node(node):
+        def cleanup(node):
             nonlocal modified, removed_count
             if isinstance(node, dict):
-                if 'noteId' in node:
-                    note_id = node['noteId']
-                    try:
-                        mw.col.get_note(note_id)
-                    except Exception:
-                        logger.info("Card %s no longer exists, removing noteId from node %s", note_id, node.get('id'))
-                        del node['noteId']
-                        modified = True
-                        removed_count += 1
+                nid = node.get('noteId')
+                if nid is not None and nid not in existing_ids:
+                    logger.info("Card %s no longer exists, removing noteId from node %s", nid, node.get('id'))
+                    del node['noteId']
+                    modified = True
+                    removed_count += 1
                 for child in node.get('children', []):
-                    cleanup_node(child)
-
-        root = get_root_node(data)
-        cleanup_node(root)
+                    cleanup(child)
+        cleanup(root)
 
         if modified:
             mindmap_note['Data'] = json.dumps(data)
@@ -749,6 +798,8 @@ def validate_and_cleanup_mindmap(mindmap_note):
 
 
 def on_notes_will_be_deleted(col, ids):
+    # First pass: collect all links grouped by mindmap_id
+    deletions = {}  # mindmap_id -> set(node_ids)
     for nid in ids:
         try:
             note = col.get_note(nid)
@@ -758,10 +809,14 @@ def on_notes_will_be_deleted(col, ids):
                     link = parse_mindmap_link(field_content)
                     if link:
                         mindmap_id, node_id = link
-                        delete_node_from_mindmap(mindmap_id, node_id)
+                        deletions.setdefault(mindmap_id, set()).add(node_id)
                     break
         except Exception as exc:
             logger.exception("Error processing note %s during deletion: %s", nid, exc)
+
+    # Second pass: batch delete from each mindmap
+    for mindmap_id, node_ids in deletions.items():
+        delete_nodes_from_mindmap(mindmap_id, node_ids)
 
 
 # --- Initialization ---

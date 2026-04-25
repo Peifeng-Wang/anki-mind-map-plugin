@@ -349,7 +349,6 @@ class TestHandleSave(unittest.TestCase):
         })
         MindMapDialog._handle_save(self.dialog, payload)
         self.dialog.mw.col.update_note.assert_called_once()
-        self.dialog.mw.col.flush.assert_called_once()
 
     def test_save_no_data(self):
         payload = json.dumps({"image_html": "", "changedNodes": []})
@@ -453,6 +452,46 @@ class TestOpenInstance(unittest.TestCase):
         existing.show.assert_called_once()
         existing.raise_.assert_called_once()
         existing.activateWindow.assert_called_once()
+
+
+class TestClassLevelRegex(unittest.TestCase):
+    def test_orphaned_link_re_matches(self):
+        html = '<div id="mindmap-link" data-mid="123" data-nid="abc" style="display:none;"> </div>'
+        match = MindMapDialog._ORPHANED_LINK_RE.search(html)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "123")
+        self.assertEqual(match.group(2), "abc")
+
+    def test_br_re_splits(self):
+        parts = MindMapDialog._BR_RE.split("a<br>b<br/>c")
+        self.assertEqual(parts, ["a", "b", "c"])
+
+    def test_html_tag_re_strips(self):
+        result = MindMapDialog._HTML_TAG_RE.sub('', "<b>hello</b>")
+        self.assertEqual(result, "hello")
+
+
+class TestIterativeDeleteOrphaned(unittest.TestCase):
+    def test_deletes_deep_orphaned_nodes(self):
+        root = {
+            "id": "root",
+            "children": [
+                {"id": "c1", "children": [{"id": "c1_1"}, {"id": "orphan1"}]},
+                {"id": "c2", "children": [{"id": "orphan2"}]}
+            ]
+        }
+        count = MindMapDialog._delete_orphaned_nodes_from_data({}, root, {"orphan1", "orphan2"})
+        self.assertEqual(count, 2)
+        self.assertEqual(len(root["children"][0]["children"]), 1)
+        self.assertEqual(len(root["children"][1]["children"]), 0)
+
+
+class TestAssetCaches(unittest.TestCase):
+    def test_asset_cache_is_dict(self):
+        self.assertIsInstance(MindMapDialog._asset_cache, dict)
+
+    def test_bg_image_cache_is_dict(self):
+        self.assertIsInstance(MindMapDialog._bg_image_cache, dict)
 
 
 if __name__ == '__main__':
