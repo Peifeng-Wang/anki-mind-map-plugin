@@ -1,1006 +1,776 @@
 import json
+import logging
 import re
+import uuid
+from contextlib import contextmanager
+
 from aqt import mw
-from aqt.qt import *
-from aqt import gui_hooks
+from aqt.qt import QCursor, QMenu, QTimer
 from aqt.utils import showInfo, tooltip
 
-# Flags to prevent sync loop
-_syncing_from_card = False
-_syncing_from_node = False
+logger = logging.getLogger(__name__)
+
+# --- Module-level compiled regex patterns ---
+MINDMAP_LINK_RE = re.compile(
+    r'<div\s+id="mindmap-link"\s+data-mid="(\d+)"\s+data-nid="([^"]+)"\s+style="display:none;">\s*</div>',
+    re.IGNORECASE,
+)
+DATA_MID_RE = re.compile(r'data-mid="(\d+)"', re.IGNORECASE)
+DATA_NID_RE = re.compile(r'data-nid="([^"]+)"', re.IGNORECASE)
+BR_RE = re.compile(r'<br\s*/?>', re.IGNORECASE)
+HTML_TAG_RE = re.compile(r'<[^<]+?>')
+MINDMAP_LINK_DIV_RE = re.compile(
+    r'<div[^>]*id="mindmap-link"[^>]*>.*?</div>\s*',
+    re.DOTALL | re.IGNORECASE,
+)
+
+# --- JavaScript templates ---
+RESET_BUTTON_JS = """
+(function() {
+    var btn = document.getElementById('mindmap_link_btn');
+    if (!btn) {
+        var buttons = document.querySelectorAll('button');
+        for (var i = 0; i < buttons.length; i++) {
+            var text = buttons[i].textContent.trim();
+            if (text.includes('📌') || text === 'MM') {
+                btn = buttons[i];
+                break;
+            }
+        }
+    }
+    if (btn) {
+        btn.innerHTML = 'MM';
+        btn.style.backgroundColor = '';
+        btn.style.color = '';
+        btn.title = 'Link to Mind Map';
+    }
+})();
+"""
+
+UPDATE_BUTTON_JS_TEMPLATE = """
+(function() {{
+    var btn = document.getElementById('mindmap_link_btn');
+    if (!btn) {{
+        var buttons = document.querySelectorAll('button');
+        for (var i = 0; i < buttons.length; i++) {{
+            var text = buttons[i].textContent.trim();
+            if (text === 'MM' || text.includes('📌')) {{
+                btn = buttons[i];
+                break;
+            }}
+        }}
+    }}
+    if (btn) {{
+        btn.innerHTML = '📌 {display_title}';
+        btn.style.backgroundColor = '#e3f2fd';
+        btn.style.color = '#1976d2';
+        btn.title = 'Linked to: {full_title}';
+    }}
+}})();
+"""
+
+LINK_HTML_TEMPLATE = """
+<div id="mindmap-link"
+     data-mid="{mindmap_id}"
+     data-nid="{node_id}"
+     style="display:none;">
+</div>
+"""
+
+
+# --- Synchronization flags ---
+
+class _SyncFlags:
+    """Simple container for sync flags with context-manager support."""
+
+    def __init__(self):
+        self.syncing_from_card = False
+        self.syncing_from_node = False
+
+    @contextmanager
+    def card_sync(self):
+        self.syncing_from_card = True
+        try:
+            yield
+        finally:
+            self.syncing_from_card = False
+
+
+_sync_flags = _SyncFlags()
+
+
+# --- Utility functions (P0) ---
+
+def extract_first_line(html_text):
+    """Extract the first line of plain text from HTML."""
+    if not html_text:
+        return ""
+    text = BR_RE.sub('\n', html_text)
+    text = HTML_TAG_RE.sub('', text)
+    return text.split('\n')[0].strip()
+
+
+def find_node_by_id(root, node_id):
+    """Recursively find a node by ID in a mind map tree."""
+    if isinstance(root, dict):
+        if root.get('id') == node_id:
+            return root
+        for child in root.get('children', []):
+            found = find_node_by_id(child, node_id)
+            if found:
+                return found
+    return None
+
+
+def parse_mindmap_link(field_content):
+    """Parse a mindmap-link div and return (mindmap_id, node_id) or None."""
+    match = MINDMAP_LINK_RE.search(field_content)
+    if match:
+        return int(match.group(1)), match.group(2)
+    return None
+
+
+def select_link_field(note):
+    """Select the best field to append a mindmap link to."""
+    for candidate in ('Back', 'Back Extra', 'Extra'):
+        if candidate in note:
+            return candidate
+    if len(note.fields) > 1:
+        return list(note.keys())[-1]
+    return None
+
+
+def get_root_node(mindmap_data):
+    """Return the root node from either a full data dict or a raw node tree."""
+    if isinstance(mindmap_data, dict) and 'data' in mindmap_data:
+        return mindmap_data['data']
+    return mindmap_data
+
 
 # --- Editor Integration ---
 
 def sync_card_to_mindmap(note):
-    """Sync first line from card front to mindmap node when card is updated"""
-    global _syncing_from_card, _syncing_from_node
-    
-    # Prevent sync loop
-    if _syncing_from_node:
+    """Sync first line from card front to mindmap node when card is updated."""
+    if _sync_flags.syncing_from_node:
         return
-    
-    # Check if note has mind map link
+
     mindmap_id = None
     node_id = None
-    
     for field_name in note.keys():
-        field_content = note[field_name]
-        # Find mindmap-link div
-        pattern = r'<div id="mindmap-link"\s+data-mid="(\d+)"\s+data-nid="([^"]+)"\s+style="display:none;">\s*</div>'
-        match = re.search(pattern, field_content)
-        if match:
-            mindmap_id = int(match.group(1))
-            node_id = match.group(2)
+        link = parse_mindmap_link(note[field_name])
+        if link:
+            mindmap_id, node_id = link
             break
-    
+
     if not mindmap_id or not node_id:
-        return  # No link, no need to sync
-    
-    # Get first line of card front
+        return
+
     if 'Front' not in note:
         return
-    
-    front_text = note['Front']
-    # Process HTML
-    front_text = re.sub(r'<br\s*/?>', '\n', front_text, flags=re.IGNORECASE)
-    clean_text = re.sub('<[^<]+?>', '', front_text)
-    first_line = clean_text.split('\n')[0].strip()
-    
+
+    first_line = extract_first_line(note['Front'])
     if not first_line:
         return
-    
-    # Update mind map
+
     try:
-        _syncing_from_card = True
-        
-        mm_note = mw.col.get_note(mindmap_id)
-        data_str = mm_note['Data']
-        data = json.loads(data_str)
-        
-        # Recursively find and update node
-        def update_node(node):
-            if isinstance(node, dict):
-                if node.get('id') == node_id:
-                    old_topic = node.get('topic', '')
-                    if old_topic != first_line:
-                        node['topic'] = first_line
-                        print(f"Synced card to mindmap: '{old_topic}' -> '{first_line}'")
-                        return True
-                if 'children' in node:
-                    for child in node['children']:
-                        if update_node(child):
-                            return True
-            return False
-        
-        if 'data' in data:
-            if update_node(data['data']):
-                mm_note['Data'] = json.dumps(data)
-                mw.col.update_note(mm_note)
-                
-    except Exception as e:
-        print(f"Error syncing card to mindmap: {e}")
-    finally:
-        _syncing_from_card = False
+        with _sync_flags.card_sync():
+            mindmap_note = mw.col.get_note(mindmap_id)
+            data = json.loads(mindmap_note['Data'])
+            root = get_root_node(data)
+            node = find_node_by_id(root, node_id)
+            if node:
+                old_topic = node.get('topic', '')
+                if old_topic != first_line:
+                    node['topic'] = first_line
+                    mindmap_note['Data'] = json.dumps(data)
+                    mw.col.update_note(mindmap_note)
+                    logger.info("Synced card to mindmap: '%s' -> '%s'", old_topic, first_line)
+    except Exception as exc:
+        logger.exception("Error syncing card to mindmap: %s", exc)
+
+
+# --- on_editor_load_note sub-functions (P1) ---
+
+def _extract_link_from_note(note):
+    """Return (field_name, mindmap_id, node_id) if a valid link exists, else None."""
+    for field_name in note.keys():
+        field_content = note[field_name]
+        if 'mindmap-link' not in field_content or 'data-mid=' not in field_content:
+            continue
+        match_mid = DATA_MID_RE.search(field_content)
+        match_nid = DATA_NID_RE.search(field_content)
+        if match_mid and match_nid:
+            return field_name, int(match_mid.group(1)), match_nid.group(1)
+    return None
+
+
+def _validate_mindmap_link(mindmap_id, node_id):
+    """Return (mindmap_note, mindmap_title, node_exists) or raises on failure."""
+    mindmap_note = mw.col.get_note(mindmap_id)
+    mindmap_title = mindmap_note['Title']
+    data = json.loads(mindmap_note['Data'])
+    root = get_root_node(data)
+    node_exists = find_node_by_id(root, node_id) is not None
+    return mindmap_note, mindmap_title, node_exists
+
+
+def _apply_link_state(editor, mindmap_id, mindmap_title):
+    """Store the validated link state on editor/note and update the button."""
+    editor.mindmap_selection = {'id': mindmap_id, 'title': mindmap_title}
+    if editor.note:
+        editor.note.mindmap_selection = editor.mindmap_selection
+    QTimer.singleShot(300, lambda: update_mindmap_button(editor, mindmap_title))
+    logger.info("Loaded existing mindmap link: %s", mindmap_title)
+
+
+def _clear_link_state(editor):
+    """Remove any leftover link state from editor and note."""
+    if hasattr(editor, 'mindmap_selection'):
+        delattr(editor, 'mindmap_selection')
+    if editor.note and hasattr(editor.note, 'mindmap_selection'):
+        delattr(editor.note, 'mindmap_selection')
+    reset_mindmap_button(editor)
+
 
 def on_editor_load_note(editor):
-    """Check mindmap association and update button when editor loads a note"""
-    
-    # Check if card already has linked mind map (for existing cards)
-    if editor.note and editor.note.id:
-        # Existing card - always read actual link state from card data
-        # Don't use editor.mindmap_selection to avoid showing wrong association in browser
-        try:
-            # Find mindmap-link div in all fields
-            for field_name in editor.note.keys():
-                field_content = editor.note[field_name]
-                if 'mindmap-link' in field_content and 'data-mid=' in field_content:
-                    # Extract mind map ID and node ID
-                    match_mid = re.search(r'data-mid="(\d+)"', field_content)
-                    match_nid = re.search(r'data-nid="([^"]+)"', field_content)
-                    
-                    if match_mid and match_nid:
-                        mindmap_id = int(match_mid.group(1))
-                        node_id = match_nid.group(1)
-                        
-                        # Validate: Check if mindmap still exists
-                        try:
-                            mm_note = mw.col.get_note(mindmap_id)
-                            mindmap_title = mm_note['Title']
-                            
-                            # Validate: Check if node still exists in mindmap
-                            data_str = mm_note['Data']
-                            data = json.loads(data_str)
-                            
-                            node_exists = False
-                            def check_node_exists(node):
-                                nonlocal node_exists
-                                if isinstance(node, dict):
-                                    if node.get('id') == node_id:
-                                        node_exists = True
-                                        return
-                                    if 'children' in node:
-                                        for child in node['children']:
-                                            check_node_exists(child)
-                            
-                            if 'data' in data:
-                                check_node_exists(data['data'])
-                            
-                            if not node_exists:
-                                # Node was deleted from mindmap, cleanup card link
-                                print(f"Node {node_id} no longer exists in mindmap {mindmap_id}, cleaning up card link")
-                                remove_link_from_card(editor.note, field_name)
-                                reset_mindmap_button(editor)
-                                return
-                            
-                            # Link is valid, show it
-                            editor.mindmap_selection = {
-                                'id': mindmap_id,
-                                'title': mindmap_title
-                            }
-                            editor.note.mindmap_selection = editor.mindmap_selection
-                            
-                            # Delay button update to ensure button is rendered
-                            from aqt.qt import QTimer
-                            QTimer.singleShot(300, lambda: update_mindmap_button(editor, mindmap_title))
-                            
-                            print(f"Loaded existing mindmap link: {mindmap_title}")
-                            return
-                            
-                        except Exception as e:
-                            # Mindmap was deleted, cleanup card link
-                            print(f"Mindmap {mindmap_id} no longer exists, cleaning up card link: {e}")
-                            remove_link_from_card(editor.note, field_name)
-                            reset_mindmap_button(editor)
-                            return
-                    break
-            
-            # If no association found, clear any leftover selection state in editor
-            if hasattr(editor, 'mindmap_selection'):
-                delattr(editor, 'mindmap_selection')
-            if hasattr(editor.note, 'mindmap_selection'):
-                delattr(editor.note, 'mindmap_selection')
-            # Reset button display
-            reset_mindmap_button(editor)
-            
-        except Exception as e:
-            print(f"Error checking for existing mindmap link: {e}")
-    else:
-        # New card (no ID) - can keep editor's selection state for batch adding
+    """Check mindmap association and update button when editor loads a note."""
+    if not (editor.note and editor.note.id):
+        # New card: preserve editor selection if present
         if hasattr(editor, 'mindmap_selection') and editor.mindmap_selection:
             if editor.note:
                 editor.note.mindmap_selection = editor.mindmap_selection
-                print(f"Preserved mindmap selection for new note: {editor.mindmap_selection['title']}")
-                # Update button display
-                from aqt.qt import QTimer
+                logger.info("Preserved mindmap selection for new note: %s", editor.mindmap_selection['title'])
                 QTimer.singleShot(300, lambda: update_mindmap_button(editor, editor.mindmap_selection['title']))
-                return
+        return
+
+    try:
+        link_info = _extract_link_from_note(editor.note)
+        if not link_info:
+            _clear_link_state(editor)
+            return
+
+        field_name, mindmap_id, node_id = link_info
+        try:
+            _, mindmap_title, node_exists = _validate_mindmap_link(mindmap_id, node_id)
+        except Exception as exc:
+            logger.warning("Mindmap %s no longer exists, cleaning up card link: %s", mindmap_id, exc)
+            remove_link_from_card(editor.note, field_name)
+            reset_mindmap_button(editor)
+            return
+
+        if not node_exists:
+            logger.info("Node %s no longer exists in mindmap %s, cleaning up card link", node_id, mindmap_id)
+            remove_link_from_card(editor.note, field_name)
+            reset_mindmap_button(editor)
+            return
+
+        _apply_link_state(editor, mindmap_id, mindmap_title)
+
+    except Exception as exc:
+        logger.exception("Error checking for existing mindmap link: %s", exc)
+
 
 def remove_link_from_card(note, field_name):
-    """Remove mindmap-link div from card field"""
+    """Remove mindmap-link div from card field."""
     try:
         field_content = note[field_name]
-        new_content = re.sub(
-            r'<div[^>]*id="mindmap-link"[^>]*>.*?</div>\s*',
-            '',
-            field_content,
-            flags=re.DOTALL | re.IGNORECASE
-        )
+        new_content = MINDMAP_LINK_DIV_RE.sub('', field_content)
         if new_content != field_content:
             note[field_name] = new_content
             mw.col.update_note(note)
-            print(f"Removed invalid mindmap link from card {note.id}")
-    except Exception as e:
-        print(f"Error removing link from card: {e}")
+            logger.info("Removed invalid mindmap link from card %s", note.id)
+    except Exception as exc:
+        logger.exception("Error removing link from card: %s", exc)
 
 
 def clear_mindmap_selection(editor):
-    """Clear mindmap selection from editor and remove association link from card"""
-    # Clear editor properties
+    """Clear mindmap selection and remove association link from card."""
     if hasattr(editor, 'mindmap_selection'):
         delattr(editor, 'mindmap_selection')
-    
-    # Clear note properties
     if editor.note and hasattr(editor.note, 'mindmap_selection'):
         delattr(editor.note, 'mindmap_selection')
-    
-    # Remove mindmap-link div from all card fields AND delete corresponding node in mindmap
+
     if editor.note and editor.note.id:
         try:
             modified = False
             mindmap_id = None
             node_id = None
-            
-            # First, find the mindmap and node ID before removing the link
+
+            for field_name in editor.note.keys():
+                link = parse_mindmap_link(editor.note[field_name])
+                if link:
+                    mindmap_id, node_id = link
+                    break
+
             for field_name in editor.note.keys():
                 field_content = editor.note[field_name]
                 if 'mindmap-link' in field_content:
-                    # Extract mindmap ID and node ID
-                    pattern = r'<div id="mindmap-link"\s+data-mid="(\d+)"\s+data-nid="([^"]+)"\s+style="display:none;">\s*</div>'
-                    match = re.search(pattern, field_content)
-                    if match:
-                        mindmap_id = int(match.group(1))
-                        node_id = match.group(2)
-                        break
-            
-            # Remove mindmap-link div from all fields
-            for field_name in editor.note.keys():
-                field_content = editor.note[field_name]
-                if 'mindmap-link' in field_content:
-                    # Remove mindmap-link div
-                    new_content = re.sub(
-                        r'<div[^>]*id="mindmap-link"[^>]*>.*?</div>\s*',
-                        '',
-                        field_content,
-                        flags=re.DOTALL | re.IGNORECASE
-                    )
+                    new_content = MINDMAP_LINK_DIV_RE.sub('', field_content)
                     if new_content != field_content:
                         editor.note[field_name] = new_content
                         modified = True
-            
-            # Delete the corresponding node in mindmap if we found the IDs
+
             if mindmap_id and node_id:
                 delete_node_from_mindmap(mindmap_id, node_id)
-            
-            # Update note if modified
+
             if modified:
                 mw.col.update_note(editor.note)
-                print("Removed mindmap link from card")
-                from aqt.utils import tooltip
+                logger.info("Removed mindmap link from card")
                 tooltip("Removed mindmap link from card")
-        except Exception as e:
-            print(f"Error removing mindmap link: {e}")
-    
-    # Reset button display
+        except Exception as exc:
+            logger.exception("Error removing mindmap link: %s", exc)
+
     reset_mindmap_button(editor)
 
+
 def reset_mindmap_button(editor):
-    """Reset mindmap button to default state"""
-    js_code = """
-    (function() {
-        var btn = document.getElementById('mindmap_link_btn');
-        if (!btn) {
-            // Fallback: find by button text
-            var buttons = document.querySelectorAll('button');
-            for (var i = 0; i < buttons.length; i++) {
-                var text = buttons[i].textContent.trim();
-                if (text.includes('📌') || text === 'MM') {
-                    btn = buttons[i];
-                    break;
-                }
-            }
-        }
-        
-        if (btn) {
-            btn.innerHTML = 'MM';
-            btn.style.backgroundColor = '';
-            btn.style.color = '';
-            btn.title = 'Link to Mind Map';
-        }
-    })();
-    """
+    """Reset mindmap button to default state."""
     try:
-        editor.web.eval(js_code)
-    except Exception as e:
-        print(f"Error resetting button: {e}")
+        editor.web.eval(RESET_BUTTON_JS)
+    except Exception as exc:
+        logger.exception("Error resetting button: %s", exc)
+
 
 def on_editor_btn_click(editor):
-    # Get all mind maps
     ids = mw.col.find_notes('"note:MindMap Master"')
     if not ids:
         tooltip("No Mind Maps found. Create one first from Tools > Mind Map > Mind Map Manager")
         return
-    
-    # Create menu
+
     menu = QMenu(editor.parentWindow)
     menu.setTitle("Select Mind Map")
-    
-    # Add "No Association" option
+
     clear_action = menu.addAction("❌")
-    clear_action.setData(None)  # Use None to identify clear operation
-    menu.addSeparator()  # Add separator line
-    
-    # Filter and add only active mind maps
+    clear_action.setData(None)
+    menu.addSeparator()
+
     active_count = 0
     for nid in ids:
         note = mw.col.get_note(nid)
-        # Check if this mind map allows new cards (default to "1" if field doesn't exist)
         try:
             allow_new = note['AllowNewCards']
         except KeyError:
-            allow_new = '1'  # Default to active if field doesn't exist
-        
-        if allow_new == "1":  # Only show active mind maps
+            allow_new = '1'
+        if allow_new == "1":
             title = note['Title']
             action = menu.addAction(title)
-            action.setData(nid)  # Store note ID in action
+            action.setData(nid)
             active_count += 1
-    
+
     if active_count == 0:
-        # No active mind maps, show info
         info_action = menu.addAction("(No active mind maps)")
         info_action.setEnabled(False)
-    
-    # Show menu at button position (or cursor)
-    # Get cursor position as fallback
+
     cursor_pos = QCursor.pos()
     action = menu.exec(cursor_pos)
-    
-    if action:
-        nid = action.data()
-        
-        if nid is None:  # User selected "No Association"
-            clear_mindmap_selection(editor)
-            tooltip("Removed mindmap link from card")
-        else:  # User selected a mind map
-            note = mw.col.get_note(nid)
-            editor.mindmap_selection = {
-                'id': nid,
-                'title': note['Title']
-            }
-            tooltip(f"Selected Mind Map: {note['Title']}")
-            # Store on the note object so we can access it in note_added
+
+    if not action:
+        return
+
+    nid = action.data()
+    if nid is None:
+        clear_mindmap_selection(editor)
+        tooltip("Removed mindmap link from card")
+    else:
+        note = mw.col.get_note(nid)
+        editor.mindmap_selection = {'id': nid, 'title': note['Title']}
+        tooltip(f"Selected Mind Map: {note['Title']}")
+        if editor.note:
             editor.note.mindmap_selection = editor.mindmap_selection
-            
-            # Update button text to show selected mindmap
-            update_mindmap_button(editor, note['Title'])
-            
-            # If this is an existing card (has ID), link it immediately
-            if editor.note.id:
-                link_existing_card_to_mindmap(editor.note, nid, note['Title'])
+        update_mindmap_button(editor, note['Title'])
+        if editor.note and editor.note.id:
+            link_existing_card_to_mindmap(editor.note, nid, note['Title'])
+
 
 def update_mindmap_button(editor, mindmap_title):
-    """Update the MM button to show the selected mindmap name"""
-    # Truncate long titles
+    """Update the MM button to show the selected mindmap name."""
     display_title = mindmap_title if len(mindmap_title) <= 15 else mindmap_title[:12] + "..."
-    
-    # Escape quotes in title for JavaScript
     safe_display = display_title.replace("'", "\\'").replace('"', '\\"')
     safe_full = mindmap_title.replace("'", "\\'").replace('"', '\\"')
-    
-    # Update button text via JavaScript using the button ID
-    js_code = f"""
-    (function() {{
-        console.log('Looking for mindmap button...');
-        // Try multiple selectors to find the button
-        var btn = document.getElementById('mindmap_link_btn');
-        if (!btn) {{
-            console.log('Button not found by ID, searching by text...');
-            // Fallback: find by button text
-            var buttons = document.querySelectorAll('button');
-            console.log('Found ' + buttons.length + ' buttons total');
-            for (var i = 0; i < buttons.length; i++) {{
-                var text = buttons[i].textContent.trim();
-                console.log('Button ' + i + ': ' + text);
-                if (text === 'MM' || text.includes('📌')) {{
-                    btn = buttons[i];
-                    console.log('Found mindmap button at index ' + i);
-                    break;
-                }}
-            }}
-        }}
-        
-        if (btn) {{
-            console.log('Updating button text to: 📌 {safe_display}');
-            btn.innerHTML = '📌 {safe_display}';
-            btn.style.backgroundColor = '#e3f2fd';
-            btn.style.color = '#1976d2';
-            btn.title = 'Linked to: {safe_full}';
-        }} else {{
-            console.log('ERROR: Mindmap button not found!');
-        }}
-    }})();
-    """
+
+    js_code = UPDATE_BUTTON_JS_TEMPLATE.format(display_title=safe_display, full_title=safe_full)
     try:
         editor.web.eval(js_code)
-        print(f"Button update JavaScript executed for: {mindmap_title}")
-    except Exception as e:
-        print(f"Error updating button: {e}")
-        # Fallback: just show tooltip
-        pass
+        logger.info("Button update executed for: %s", mindmap_title)
+    except Exception as exc:
+        logger.exception("Error updating button: %s", exc)
 
-def get_special_boundary_info(mindmap_data):
-    """Find special boundary in mindmap data and return its node IDs"""
-    try:
-        # Check if mindmap_data is a dictionary
-        if not isinstance(mindmap_data, dict):
-            print("get_special_boundary_info: mindmap_data is not a dict")
-            return None
-        
-        # Debug: print the structure of mindmap_data
-        print("=== get_special_boundary_info: Analyzing mindmap_data structure ===")
-        print(f"Top-level keys: {list(mindmap_data.keys())}")
-        
-        boundaries = None
-        
-        # Try to get boundaries from different possible locations
-        # First, check if boundaries is directly in mindmap_data
-        if 'boundaries' in mindmap_data:
-            boundaries = mindmap_data['boundaries']
-            print(f"Found boundaries in mindmap_data['boundaries']: {len(boundaries) if isinstance(boundaries, list) else 'not a list'}")
-        # If not found, check inside 'data' key
-        elif 'data' in mindmap_data and isinstance(mindmap_data['data'], dict):
-            if 'boundaries' in mindmap_data['data']:
-                boundaries = mindmap_data['data']['boundaries']
-                print(f"Found boundaries in mindmap_data['data']['boundaries']: {len(boundaries) if isinstance(boundaries, list) else 'not a list'}")
-            else:
-                print("No 'boundaries' key found in mindmap_data['data']")
-                # Check what's actually in 'data'
-                print(f"Keys in mindmap_data['data']: {list(mindmap_data['data'].keys()) if isinstance(mindmap_data['data'], dict) else 'not a dict'}")
-        else:
-            print("mindmap_data structure not recognized")
-            # Try to find boundaries by scanning all values
-            for key, value in mindmap_data.items():
-                if isinstance(value, list) and key.lower().find('boundary') != -1:
-                    boundaries = value
-                    print(f"Found boundaries in key '{key}': {len(value)} items")
-                    break
-        
-        if boundaries is None:
-            print("No boundaries found at all")
-            return None
-        
-        if not isinstance(boundaries, list):
-            print(f"Boundaries is not a list, type: {type(boundaries)}")
-            return None
-        
-        if len(boundaries) == 0:
-            print("boundaries list is empty")
-            return None
-        
-        print(f"Total boundaries found: {len(boundaries)}")
-        
-        # Find special boundary
-        special_boundaries = []
-        for i, boundary in enumerate(boundaries):
-            # Check if boundary is a dictionary
-            if not isinstance(boundary, dict):
-                print(f"Boundary {i} is not a dict, type: {type(boundary)}")
-                continue
-                
-            # Check if boundary is special and has nodeIds
-            is_special = boundary.get('isSpecial', False)
-            # Also check for is_special with different capitalization
-            if not is_special:
-                is_special = boundary.get('is_special', False)
-            
-            has_nodeIds = 'nodeIds' in boundary and boundary['nodeIds']
-            # Also check for node_ids with different capitalization
-            if not has_nodeIds and 'node_ids' in boundary and boundary['node_ids']:
-                has_nodeIds = True
-                boundary['nodeIds'] = boundary['node_ids']
-            
-            color = boundary.get('color', '')
-            node_ids = boundary.get('nodeIds', [])
-            
-            print(f"Boundary {i}: isSpecial={is_special}, has_nodeIds={has_nodeIds}, "
-                  f"nodeIds count={len(node_ids) if isinstance(node_ids, list) else 'not list'}, "
-                  f"color={color[:50] if color else 'none'}")
-            
-            if is_special and has_nodeIds:
-                special_boundaries.append(boundary)
-                print(f"  -> This is a SPECIAL boundary!")
-        
-        if not special_boundaries:
-            print("No special boundaries found")
-            return None
-        
-        print(f"Found {len(special_boundaries)} special boundaries")
-        
-        # Use the first special boundary
-        special_boundary = special_boundaries[0]
-        node_ids = special_boundary.get('nodeIds', [])
-        
-        if not isinstance(node_ids, list):
-            print(f"nodeIds is not a list, type: {type(node_ids)}")
-            return None
-        
-        print(f"Found special boundary with {len(node_ids)} node IDs: {node_ids[:10]}{'...' if len(node_ids) > 10 else ''}")
-        
-        # Validate that node IDs are strings
-        valid_node_ids = []
-        for node_id in node_ids:
-            if isinstance(node_id, str):
-                valid_node_ids.append(node_id)
-            else:
-                print(f"Warning: node ID {node_id} is not a string, type: {type(node_id)}")
-        
-        if not valid_node_ids:
-            print("No valid string node IDs found in special boundary")
-            return None
-        
-        # Additional debug: check if these node IDs exist in the mindmap
-        print("=== Validating special boundary node IDs in mindmap ===")
-        # Function to find node by ID
-        def find_node_by_id(node, target_id):
-            if isinstance(node, dict):
-                if node.get('id') == target_id:
-                    return node
-                if 'children' in node:
-                    for child in node['children']:
-                        found = find_node_by_id(child, target_id)
-                        if found:
-                            return found
-            return None
-        
-        # Get root node
-        root = None
-        if 'data' in mindmap_data:
-            root = mindmap_data['data']
-        else:
-            root = mindmap_data
-        
-        existing_node_ids = []
-        for node_id in valid_node_ids:
-            node = find_node_by_id(root, node_id)
-            if node:
-                existing_node_ids.append(node_id)
-                print(f"  ✓ Node {node_id} exists in mindmap: '{node.get('topic', '')[:50]}'")
-            else:
-                print(f"  ✗ Node {node_id} NOT FOUND in mindmap")
-        
-        if not existing_node_ids:
-            print("WARNING: None of the special boundary node IDs exist in the mindmap!")
-            return None
-        
-        print(f"Returning {len(existing_node_ids)} valid node IDs from special boundary")
-        return existing_node_ids
-        
-    except Exception as e:
-        print(f"Error getting special boundary info: {e}")
-        import traceback
-        traceback.print_exc()
+
+# --- get_special_boundary_info refactor (P1) ---
+
+def _extract_boundaries(mindmap_data):
+    """Extract the boundaries list from various possible locations."""
+    if not isinstance(mindmap_data, dict):
+        logger.debug("mindmap_data is not a dict")
+        return None
+
+    if 'boundaries' in mindmap_data:
+        return mindmap_data['boundaries']
+
+    data_section = mindmap_data.get('data')
+    if isinstance(data_section, dict) and 'boundaries' in data_section:
+        return data_section['boundaries']
+
+    for key, value in mindmap_data.items():
+        if isinstance(value, list) and 'boundary' in key.lower():
+            return value
+
     return None
 
-def find_parent_for_new_node(mindmap_data, special_node_ids=None):
-    """Find the appropriate parent node for new linked card node.
-    If special boundary exists, use the first node in boundary as parent.
-    Otherwise return root node."""
-    
-    def find_node_by_id(node, node_id):
-        """Recursively find node by ID"""
-        if isinstance(node, dict):
-            if node.get('id') == node_id:
-                return node
-            if 'children' in node:
-                for child in node['children']:
-                    found = find_node_by_id(child, node_id)
-                    if found:
-                        return found
+
+def _find_special_boundary(boundaries):
+    """Return the first special boundary with valid nodeIds, or None."""
+    if not isinstance(boundaries, list):
         return None
-    
-    # Get root node from mindmap_data
-    if isinstance(mindmap_data, dict) and 'data' in mindmap_data:
-        # Full mindmap data structure
-        root = mindmap_data.get('data')
-        full_data = mindmap_data
-    else:
-        # Just the node tree
-        root = mindmap_data
-        full_data = {'data': mindmap_data} if mindmap_data else {}
-    
+    for boundary in boundaries:
+        if not isinstance(boundary, dict):
+            continue
+        is_special = boundary.get('isSpecial') or boundary.get('is_special')
+        node_ids = boundary.get('nodeIds') or boundary.get('node_ids')
+        if is_special and node_ids:
+            return boundary
+    return None
+
+
+def _validate_boundary_node_ids(node_ids, root):
+    """Return a list of node IDs that actually exist in the mindmap tree."""
+    valid = []
+    for node_id in node_ids:
+        if not isinstance(node_id, str):
+            logger.warning("node ID %s is not a string, type: %s", node_id, type(node_id))
+            continue
+        if find_node_by_id(root, node_id):
+            valid.append(node_id)
+        else:
+            logger.debug("Node %s NOT FOUND in mindmap", node_id)
+    return valid
+
+
+def get_special_boundary_info(mindmap_data):
+    """Find special boundary in mindmap data and return its node IDs."""
+    try:
+        boundaries = _extract_boundaries(mindmap_data)
+        if boundaries is None:
+            logger.debug("No boundaries found")
+            return None
+        if not isinstance(boundaries, list) or not boundaries:
+            logger.debug("Boundaries is empty or not a list")
+            return None
+
+        special_boundary = _find_special_boundary(boundaries)
+        if not special_boundary:
+            logger.debug("No special boundaries found")
+            return None
+
+        node_ids = special_boundary.get('nodeIds') or special_boundary.get('node_ids', [])
+        if not isinstance(node_ids, list):
+            logger.debug("nodeIds is not a list")
+            return None
+
+        root = get_root_node(mindmap_data)
+        valid_ids = _validate_boundary_node_ids(node_ids, root)
+        if not valid_ids:
+            logger.warning("None of the special boundary node IDs exist in the mindmap")
+            return None
+
+        logger.debug("Returning %s valid node IDs from special boundary", len(valid_ids))
+        return valid_ids
+
+    except Exception as exc:
+        logger.exception("Error getting special boundary info: %s", exc)
+    return None
+
+
+def find_parent_for_new_node(mindmap_data, special_node_ids=None):
+    """Find the appropriate parent node for a new linked card node."""
+    root = get_root_node(mindmap_data)
     if not root:
-        print("find_parent_for_new_node: No root node found")
+        logger.debug("find_parent_for_new_node: No root node found")
+        return None, -1
+
+    if not special_node_ids:
+        logger.debug("find_parent_for_new_node: No special_node_ids, using root")
         return root, -1
-    
-    # If no special boundary or no node IDs, return root
-    if not special_node_ids or len(special_node_ids) == 0:
-        print("find_parent_for_new_node: No special_node_ids, using root")
-        return root, -1
-    
-    print(f"find_parent_for_new_node: Processing {len(special_node_ids)} special node IDs")
-    print(f"Special node IDs: {special_node_ids[:10]}{'...' if len(special_node_ids) > 10 else ''}")
-    
-    # Find the first valid node in special boundary
+
     for node_id in special_node_ids:
         node = find_node_by_id(root, node_id)
         if node:
-            print(f"find_parent_for_new_node: Selected first valid node from special boundary: {node.get('id')}")
-            print(f"  Node topic: '{node.get('topic', '')[:50]}'")
-            # Return this node as parent
+            logger.debug("find_parent_for_new_node: Selected node from special boundary: %s", node.get('id'))
             return node, -1
         else:
-            print(f"  WARNING: Node ID {node_id} not found in mindmap!")
-    
-    # If no valid nodes found in special boundary, use root
-    print("find_parent_for_new_node: No valid nodes found in special boundary, using root")
+            logger.debug("WARNING: Node ID %s not found in mindmap", node_id)
+
+    logger.debug("find_parent_for_new_node: No valid nodes in special boundary, using root")
     return root, -1
 
+
+# --- link_existing_card_to_mindmap refactor (P1) ---
+
+def _update_existing_node(card_note, mindmap_data, existing_node_id, first_line):
+    """Update an existing mindmap node with the card's noteId and topic."""
+    root = get_root_node(mindmap_data)
+    node = find_node_by_id(root, existing_node_id)
+    if node:
+        node['noteId'] = card_note.id
+        node['topic'] = first_line
+        return True
+    return False
+
+
+def _create_new_node_in_mindmap(card_note, mindmap_data, special_node_ids):
+    """Create a new node in the mindmap for the card and return its ID."""
+    new_node_id = f"node_{uuid.uuid4().hex[:8]}"
+    first_line = extract_first_line(card_note.get('Front', ''))
+    if not first_line:
+        first_line = "Linked Card"
+
+    new_node = {
+        "id": new_node_id,
+        "topic": first_line,
+        "direction": "right",
+        "expanded": True,
+        "noteId": card_note.id,
+    }
+
+    parent, _ = find_parent_for_new_node(mindmap_data, special_node_ids)
+    if not parent:
+        parent = get_root_node(mindmap_data)
+    if 'children' not in parent:
+        parent['children'] = []
+    parent['children'].append(new_node)
+    return new_node_id
+
+
 def link_existing_card_to_mindmap(card_note, mindmap_id, mindmap_title):
-    """Link an existing card to a mindmap by creating/updating a node with noteId"""
+    """Link an existing card to a mindmap by creating/updating a node with noteId."""
     try:
-        # Get first line from card's Front field
-        if 'Front' in card_note:
-            front_text = card_note['Front']
-            front_text = re.sub(r'<br\s*/?>', '\n', front_text, flags=re.IGNORECASE)
-            clean_text = re.sub('<[^<]+?>', '', front_text)
-            first_line = clean_text.split('\n')[0].strip()
-            if not first_line:
-                first_line = "Linked Card"
-        else:
+        first_line = extract_first_line(card_note.get('Front', ''))
+        if not first_line:
             first_line = "Linked Card"
-        
-        # Check if card already has a link to this mindmap
+
         has_existing_link = False
         existing_node_id = None
         for field_name in card_note.keys():
             field_content = card_note[field_name]
             if f'data-mid="{mindmap_id}"' in field_content:
-                # Extract node ID from existing link
-                match = re.search(r'data-nid="([^"]+)"', field_content)
+                match = DATA_NID_RE.search(field_content)
                 if match:
                     existing_node_id = match.group(1)
                     has_existing_link = True
                 break
-        
-        # Load mindmap data
-        mm_note = mw.col.get_note(mindmap_id)
-        data_str = mm_note['Data']
-        data = json.loads(data_str)
-        
-        # Preserve boundaries if they exist in the data
+
+        mindmap_note = mw.col.get_note(mindmap_id)
+        data = json.loads(mindmap_note['Data'])
         boundaries = data.get('boundaries', [])
-        
-        # Check for special boundary
         special_node_ids = get_special_boundary_info(data)
-        print(f"on_note_added: special_node_ids = {special_node_ids}")
-        
+        logger.debug("link_existing_card_to_mindmap: special_node_ids = %s", special_node_ids)
+
         if has_existing_link and existing_node_id:
-            # Update existing node to add noteId
-            def update_node_with_noteid(node):
-                if isinstance(node, dict):
-                    if node.get('id') == existing_node_id:
-                        node['noteId'] = card_note.id
-                        node['topic'] = first_line  # Also update topic
-                        return True
-                    if 'children' in node:
-                        for child in node['children']:
-                            if update_node_with_noteid(child):
-                                return True
-                return False
-            
-            # Get node tree from data
-            if 'data' in data:
-                node_tree = data['data']
-            else:
-                node_tree = data
-                
-            if update_node_with_noteid(node_tree):
-                # Save the entire data structure with preserved boundaries
+            if _update_existing_node(card_note, data, existing_node_id, first_line):
                 if boundaries:
                     data['boundaries'] = boundaries
-                mm_note['Data'] = json.dumps(data)
-                mw.col.update_note(mm_note)
+                mindmap_note['Data'] = json.dumps(data)
+                mw.col.update_note(mindmap_note)
         else:
-            # Create new node
-            import uuid
-            new_node_id = f"node_{uuid.uuid4().hex[:8]}"
-            
-            new_node = {
-                "id": new_node_id,
-                "topic": first_line,
-                "direction": "right",
-                "expanded": True,
-                "noteId": card_note.id  # Link back to card
-            }
-            
-            # Find appropriate parent based on special boundary
-            parent, insert_index = find_parent_for_new_node(data, special_node_ids)
-            
-            if not parent:
-                # If can't find parent, use root
-                if 'data' in data:
-                    parent = data['data']
-                else:
-                    parent = data
-                insert_index = -1
-            
-            if 'children' not in parent:
-                parent['children'] = []
-            
-            # Append as child
-            parent['children'].append(new_node)
-            
-            # Save mindmap - ensure we save the entire data structure with boundaries
-            # Also ensure boundaries are properly formatted for saving
+            new_node_id = _create_new_node_in_mindmap(card_note, data, special_node_ids)
             if boundaries:
                 data['boundaries'] = boundaries
-                print(f"link_existing_card_to_mindmap: Saving {len(boundaries)} boundaries with mindmap")
-        
-            # Debug: Check if special boundary is preserved
-            if boundaries:
-                for i, b in enumerate(boundaries):
-                    if b.get('isSpecial'):
-                        print(f"  Boundary {i} isSpecial={b.get('isSpecial')}, color={b.get('color', '')[:50]}")
-        
-            mm_note['Data'] = json.dumps(data)
-            mw.col.update_note(mm_note)
-            print(f"link_existing_card_to_mindmap: Mindmap saved with new node")
-            
-            # Add link div to card if not exists
-            field_to_update = None
-            if 'Back' in card_note:
-                field_to_update = 'Back'
-            elif 'Back Extra' in card_note:
-                field_to_update = 'Back Extra'
-            elif 'Extra' in card_note:
-                field_to_update = 'Extra'
-            elif len(card_note.fields) > 1:
-                field_to_update = list(card_note.keys())[-1]
-            
+                logger.debug("link_existing_card_to_mindmap: Saving %s boundaries", len(boundaries))
+            mindmap_note['Data'] = json.dumps(data)
+            mw.col.update_note(mindmap_note)
+            logger.info("link_existing_card_to_mindmap: Mindmap saved with new node")
+
+            field_to_update = select_link_field(card_note)
             if field_to_update:
-                link_html = f"""
-<div id="mindmap-link" 
-     data-mid="{mindmap_id}" 
-     data-nid="{new_node_id}" 
-     style="display:none;">
-</div>
-"""
+                link_html = LINK_HTML_TEMPLATE.format(mindmap_id=mindmap_id, node_id=new_node_id)
                 card_note[field_to_update] += link_html
                 mw.col.update_note(card_note)
-        
+
         tooltip(f"Linked existing card to '{mindmap_title}'")
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        showInfo(f"Error linking card to mindmap: {e}")
+
+    except Exception as exc:
+        logger.exception("Error linking card to mindmap: %s", exc)
+        showInfo(f"Error linking card to mindmap: {exc}")
+
 
 def delete_node_from_mindmap(mindmap_id, node_id):
-    """Delete a node from mindmap when card link is removed"""
+    """Delete a node from mindmap when card link is removed."""
     try:
-        # Get mindmap note
         try:
-            mm_note = mw.col.get_note(mindmap_id)
-        except Exception as e:
-            print(f"Mindmap {mindmap_id} not found, skipping node deletion: {e}")
+            mindmap_note = mw.col.get_note(mindmap_id)
+        except Exception as exc:
+            logger.warning("Mindmap %s not found, skipping node deletion: %s", mindmap_id, exc)
             return
-        
-        data_str = mm_note['Data']
-        data = json.loads(data_str)
-        
+
+        data = json.loads(mindmap_note['Data'])
         deleted_count = 0
-        
-        # Recursive function to find and delete node
-        def delete_node(node, parent_children=None, index=None):
+
+        def _delete_node(node, parent_children=None, index=None):
             nonlocal deleted_count
             if isinstance(node, dict):
-                # Check if this is the node to delete
                 if node.get('id') == node_id:
                     if parent_children is not None and index is not None:
                         parent_children.pop(index)
                         deleted_count += 1
-                        print(f"Deleted node {node_id} from mindmap {mindmap_id}")
+                        logger.info("Deleted node %s from mindmap %s", node_id, mindmap_id)
                         return True
-                # Recursively check children
                 if 'children' in node:
                     for i in range(len(node['children']) - 1, -1, -1):
-                        delete_node(node['children'][i], node['children'], i)
+                        _delete_node(node['children'][i], node['children'], i)
             return False
-        
-        # Delete node from mindmap data
-        if 'data' in data:
-            delete_node(data['data'])
-            
-            # Save mindmap if node was deleted
-            if deleted_count > 0:
-                mm_note['Data'] = json.dumps(data)
-                mw.col.update_note(mm_note)
-                print(f"Successfully deleted node {node_id} from mindmap {mindmap_id}")
-            else:
-                print(f"Node {node_id} not found in mindmap {mindmap_id}")
-                
-    except Exception as e:
-        print(f"Error deleting node {node_id} from mindmap {mindmap_id}: {e}")
+
+        root = get_root_node(data)
+        _delete_node(root)
+
+        if deleted_count > 0:
+            mindmap_note['Data'] = json.dumps(data)
+            mw.col.update_note(mindmap_note)
+            logger.info("Successfully deleted node %s from mindmap %s", node_id, mindmap_id)
+        else:
+            logger.info("Node %s not found in mindmap %s", node_id, mindmap_id)
+
+    except Exception as exc:
+        logger.exception("Error deleting node %s from mindmap %s: %s", node_id, mindmap_id, exc)
+
 
 def add_editor_button(buttons, editor):
-    # Store reference to the button index for later updates
     btn = editor.addButton(
         icon=None,
         cmd="mindmap_link",
         func=lambda e=editor: on_editor_btn_click(e),
         tip="Link to Mind Map",
         label="MM",
-        id="mindmap_link_btn"  # Add ID for easier selection
+        id="mindmap_link_btn",
     )
     buttons.append(btn)
-    
-    # Store editor reference for button updates
     if not hasattr(editor, '_mindmap_btn_added'):
         editor._mindmap_btn_added = True
-    
     return buttons
+
 
 # --- Note Creation Hook ---
 
 def on_note_added(note):
     if not hasattr(note, 'mindmap_selection') or not note.mindmap_selection:
         return
-        
+
     mindmap_id = note.mindmap_selection['id']
-    
-    # Get the first line of the Front field
-    if 'Front' in note:
-        front_text = note['Front']
-        # Replace <br> tags with newlines before processing
-        front_text = re.sub(r'<br\s*/?>', '\n', front_text, flags=re.IGNORECASE)
-        # Strip other HTML tags for clean text
-        clean_text = re.sub('<[^<]+?>', '', front_text)
-        first_line = clean_text.split('\n')[0].strip()
-        if not first_line:
-            first_line = "New Card"
-    else:
+    first_line = extract_first_line(note.get('Front', ''))
+    if not first_line:
         first_line = "New Card"
-        
-    # Update Mind Map
+
     try:
-        mm_note = mw.col.get_note(mindmap_id)
-        data_str = mm_note['Data']
-        data = json.loads(data_str)
-        
-        # Preserve boundaries if they exist in the data
+        mindmap_note = mw.col.get_note(mindmap_id)
+        data = json.loads(mindmap_note['Data'])
         boundaries = data.get('boundaries', [])
-        
-        # Check for special boundary
         special_node_ids = get_special_boundary_info(data)
-        
-        # Generate new node ID
-        import uuid
+
         new_node_id = f"node_{uuid.uuid4().hex[:8]}"
-        
-        # Create new node
         new_node = {
             "id": new_node_id,
             "topic": first_line,
-            "direction": "right", # Default to right
+            "direction": "right",
             "expanded": True,
-            "noteId": note.id # Link to the card
+            "noteId": note.id,
         }
-        
-        # Find appropriate parent based on special boundary
-        parent, insert_index = find_parent_for_new_node(data, special_node_ids)
-        
+
+        parent, _ = find_parent_for_new_node(data, special_node_ids)
         if not parent:
-            # If can't find parent, use root
-            if 'data' in data:
-                parent = data['data']
-            else:
-                parent = data
-            insert_index = -1
-        
+            parent = get_root_node(data)
         if 'children' not in parent:
             parent['children'] = []
-        
-        # Append as child
         parent['children'].append(new_node)
-        
-        # Save Mind Map - ensure we save the entire data structure with boundaries
-        # Also ensure boundaries are properly formatted for saving
+
         if boundaries:
             data['boundaries'] = boundaries
-            print(f"on_note_added: Saving {len(boundaries)} boundaries with mindmap")
-        
-        # Debug: Check if special boundary is preserved
-        if boundaries:
-            for i, b in enumerate(boundaries):
-                if b.get('isSpecial'):
-                    print(f"  Boundary {i} isSpecial={b.get('isSpecial')}, color={b.get('color', '')[:50]}")
-        
-        mm_note['Data'] = json.dumps(data)
-        mw.col.update_note(mm_note)
-        print(f"on_note_added: Mindmap saved with new node")
-        
-        # Add Link to Card
-        field_to_update = None
-        if 'Back' in note:
-            field_to_update = 'Back'
-        elif 'Back Extra' in note:
-            field_to_update = 'Back Extra'
-        elif 'Extra' in note:
-            field_to_update = 'Extra'
-        elif len(note.fields) > 1:
-            # Fallback to the last field if it's not the first one
-            field_to_update = list(note.keys())[-1]
-            
+            logger.debug("on_note_added: Saving %s boundaries with mindmap", len(boundaries))
+
+        mindmap_note['Data'] = json.dumps(data)
+        mw.col.update_note(mindmap_note)
+        logger.info("on_note_added: Mindmap saved with new node")
+
+        field_to_update = select_link_field(note)
         if field_to_update:
-            link_html = f"""
-<div id="mindmap-link" 
-     data-mid="{mindmap_id}" 
-     data-nid="{new_node_id}" 
-     style="display:none;">
-</div>
-"""
+            link_html = LINK_HTML_TEMPLATE.format(mindmap_id=mindmap_id, node_id=new_node_id)
             note[field_to_update] += link_html
             mw.col.update_note(note)
-            
-        tooltip(f"Added node '{first_line}' to Mind Map")
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        showInfo(f"Error linking to mind map: {e}")
 
+        tooltip(f"Added node '{first_line}' to Mind Map")
+
+    except Exception as exc:
+        logger.exception("Error linking to mind map: %s", exc)
+        showInfo(f"Error linking to mind map: {exc}")
+
+
+# --- Validation & Cleanup ---
 
 def validate_and_cleanup_mindmap(mindmap_note):
-    """Validate and cleanup nodes in mindmap - remove noteId if card doesn't exist"""
+    """Validate and cleanup nodes in mindmap - remove noteId if card doesn't exist."""
     try:
-        data_str = mindmap_note['Data']
-        data = json.loads(data_str)
-        
+        data = json.loads(mindmap_note['Data'])
         modified = False
-        
+        removed_count = 0
+
         def cleanup_node(node):
-            nonlocal modified
+            nonlocal modified, removed_count
             if isinstance(node, dict):
-                # Check if node has noteId
                 if 'noteId' in node:
                     note_id = node['noteId']
-                    # Check if card still exists
                     try:
-                        card_note = mw.col.get_note(note_id)
-                        # Card exists, no cleanup needed
-                    except:
-                        # Card was deleted, remove noteId
-                        print(f"Card {note_id} no longer exists, removing noteId from node {node.get('id')}")
+                        mw.col.get_note(note_id)
+                    except Exception:
+                        logger.info("Card %s no longer exists, removing noteId from node %s", note_id, node.get('id'))
                         del node['noteId']
                         modified = True
-                
-                # Recursively check children
-                if 'children' in node:
-                    for child in node['children']:
-                        cleanup_node(child)
-        
-        if 'data' in data:
-            cleanup_node(data['data'])
-        
-        # Save if modified
+                        removed_count += 1
+                for child in node.get('children', []):
+                    cleanup_node(child)
+
+        root = get_root_node(data)
+        cleanup_node(root)
+
         if modified:
             mindmap_note['Data'] = json.dumps(data)
             mw.col.update_note(mindmap_note)
-            print(f"Cleaned up mindmap {mindmap_note.id}: removed {modified} invalid noteId references")
-            
-        # Also validate cross-mindmap links
+            logger.info("Cleaned up mindmap %s: removed %s invalid noteId references", mindmap_note.id, removed_count)
+
         try:
             from .cross_link_manager import CrossLinkManager
             removed_cross, removed_back = CrossLinkManager.validate_links(mindmap_note.id)
             if removed_cross > 0 or removed_back > 0:
-                print(f"Cleaned up {removed_cross} invalid cross-links and {removed_back} invalid back-links")
-        except ImportError as e:
-            print(f"CrossLinkManager not available: {e}")
-        except Exception as e:
-            print(f"Error validating cross-links: {e}")
-            
-    except Exception as e:
-        print(f"Error validating mindmap: {e}")
+                logger.info("Cleaned up %s invalid cross-links and %s invalid back-links", removed_cross, removed_back)
+        except ImportError as exc:
+            logger.debug("CrossLinkManager not available: %s", exc)
+        except Exception as exc:
+            logger.exception("Error validating cross-links: %s", exc)
+
+    except Exception as exc:
+        logger.exception("Error validating mindmap: %s", exc)
 
 
 def on_notes_will_be_deleted(col, ids):
-    from aqt import mw
     for nid in ids:
         try:
             note = col.get_note(nid)
             for field_name in note.keys():
                 field_content = note[field_name]
                 if 'mindmap-link' in field_content and 'data-mid=' in field_content:
-                    import re
-                    pattern = r'<div id="mindmap-link"\s+data-mid="(\d+)"\s+data-nid="([^"]+)"\s+style="display:none;">\s*</div>'
-                    match = re.search(pattern, field_content)
-                    if match:
-                        mindmap_id = int(match.group(1))
-                        node_id = match.group(2)
+                    link = parse_mindmap_link(field_content)
+                    if link:
+                        mindmap_id, node_id = link
                         delete_node_from_mindmap(mindmap_id, node_id)
                     break
-        except Exception as e:
-            print(f"Error processing note {nid} during deletion: {e}")
+        except Exception as exc:
+            logger.exception("Error processing note %s during deletion: %s", nid, exc)
+
 
 # --- Initialization ---
 
 def init_card_linker():
-    gui_hooks.editor_did_init_buttons.append(add_editor_button)
-    gui_hooks.editor_did_load_note.append(on_editor_load_note)  # Added: sync selection state
-    gui_hooks.add_cards_did_add_note.append(on_note_added) 
-    
-    # Register note update hook for bidirectional sync
+    from aqt import gui_hooks
     from anki import hooks
+    gui_hooks.editor_did_init_buttons.append(add_editor_button)
+    gui_hooks.editor_did_load_note.append(on_editor_load_note)
+    gui_hooks.add_cards_did_add_note.append(on_note_added)
     hooks.note_will_flush.append(sync_card_to_mindmap)
-    
     hooks.notes_will_be_deleted.append(on_notes_will_be_deleted)
