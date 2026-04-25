@@ -3,66 +3,98 @@ from aqt import mw
 from anki.models import NotetypeDict
 
 MODEL_NAME = "MindMap Master"
+FIELD_TITLE = "Title"
+FIELD_DATA = "Data"
+FIELD_DISPLAY_HTML = "DisplayHTML"
+FIELD_UUID = "UUID"
+FIELD_ALLOW_NEW_CARDS = "AllowNewCards"
+MODEL_FIELDS = (
+    FIELD_TITLE,
+    FIELD_DATA,
+    FIELD_DISPLAY_HTML,
+    FIELD_UUID,
+    FIELD_ALLOW_NEW_CARDS,
+)
+CARD_TEMPLATE_NAME = "Card 1"
+CARD_TEMPLATE_QFMT = "{{Title}}<br>{{DisplayHTML}}"
+CARD_TEMPLATE_AFMT = "{{FrontSide}}"
+DEFAULT_ALLOW_NEW_CARDS = "1"
+DEFAULT_DECK_ID = 0
+ALLOW_NEW_CARDS_MIGRATION_MESSAGE = (
+    "Added AllowNewCards field to existing MindMap Master model"
+)
+
 
 def get_or_create_mindmap_model() -> NotetypeDict:
     """
     Retrieves the MindMap Master note type, creating it if it doesn't exist.
     """
-    col = mw.col
+    return _get_or_create_mindmap_model(mw.col)
+
+
+def _get_or_create_mindmap_model(col) -> NotetypeDict:
     model = col.models.by_name(MODEL_NAME)
-    
+
     if model:
-        # Check if AllowNewCards field exists, add it if missing (migration)
-        field_names = [f['name'] for f in model['flds']]
-        if 'AllowNewCards' not in field_names:
-            col.models.add_field(model, col.models.new_field("AllowNewCards"))
-            col.models.save(model)
-            print("Added AllowNewCards field to existing MindMap Master model")
+        _ensure_mindmap_model_schema(col, model)
         return model
-    
-    # Create new model
+
+    return _create_mindmap_model(col)
+
+
+def _ensure_mindmap_model_schema(col, model: NotetypeDict) -> None:
+    """Apply compatible schema migrations to an existing mind map note type."""
+    if FIELD_ALLOW_NEW_CARDS not in _model_field_names(model):
+        col.models.add_field(model, col.models.new_field(FIELD_ALLOW_NEW_CARDS))
+        col.models.save(model)
+        print(ALLOW_NEW_CARDS_MIGRATION_MESSAGE)
+
+
+def _model_field_names(model: NotetypeDict) -> set[str]:
+    return {field["name"] for field in model["flds"]}
+
+
+def _create_mindmap_model(col) -> NotetypeDict:
     model = col.models.new(MODEL_NAME)
-    
-    # Add fields
-    # Title: The name of the mind map
-    col.models.add_field(model, col.models.new_field("Title"))
-    
-    # Data: The JSON data of the mind map (hidden in editor usually, but we keep it plain)
-    col.models.add_field(model, col.models.new_field("Data"))
-    
-    # DisplayHTML: The static representation for mobile/review
-    col.models.add_field(model, col.models.new_field("DisplayHTML"))
-    
-    # UUID: Unique ID for linking
-    col.models.add_field(model, col.models.new_field("UUID"))
-    
-    # AllowNewCards: Whether new cards can be linked to this mind map (1=yes, 0=no)
-    col.models.add_field(model, col.models.new_field("AllowNewCards"))
-    
-    # Set the template
-    # We want a simple template that just shows the DisplayHTML
-    t = col.models.new_template("Card 1")
-    t['qfmt'] = "{{Title}}<br>{{DisplayHTML}}"
-    t['afmt'] = "{{FrontSide}}"
-    col.models.add_template(model, t)
-    
-    # Add to collection
+
+    for field_name in MODEL_FIELDS:
+        col.models.add_field(model, col.models.new_field(field_name))
+
+    template = col.models.new_template(CARD_TEMPLATE_NAME)
+    template["qfmt"] = CARD_TEMPLATE_QFMT
+    template["afmt"] = CARD_TEMPLATE_AFMT
+    col.models.add_template(model, template)
+
     col.models.add(model)
     return model
+
 
 def create_new_mindmap_note(title: str, uuid_str: str) -> int:
     """
     Creates a new MindMap note and returns its ID.
     """
-    col = mw.col
-    model = get_or_create_mindmap_model()
+    return _create_new_mindmap_note(mw.col, title, uuid_str)
+
+
+def _create_new_mindmap_note(col, title: str, uuid_str: str) -> int:
+    model = _get_or_create_mindmap_model(col)
     note = col.new_note(model)
-    note['Title'] = title
-    note['UUID'] = uuid_str
-    note['AllowNewCards'] = "1"  # Default: allow new cards to link to this mind map
-    
-    # Initialize with a basic root node (jsMind format)
-    initial_data = {
+    _populate_mindmap_note_fields(note, title, uuid_str)
+
+    col.add_note(note, DEFAULT_DECK_ID)
+    return note.id
+
+
+def _populate_mindmap_note_fields(note, title: str, uuid_str: str) -> None:
+    note[FIELD_TITLE] = title
+    note[FIELD_UUID] = uuid_str
+    note[FIELD_ALLOW_NEW_CARDS] = DEFAULT_ALLOW_NEW_CARDS
+    note[FIELD_DATA] = json.dumps(_build_initial_mindmap_data(title))
+    note[FIELD_DISPLAY_HTML] = _build_display_html(title)
+
+
+def _build_initial_mindmap_data(title: str) -> dict:
+    return {
         "meta": {
             "name": title,
             "author": "anki",
@@ -74,8 +106,7 @@ def create_new_mindmap_note(title: str, uuid_str: str) -> int:
             "topic": title
         }
     }
-    note['Data'] = json.dumps(initial_data)
-    note['DisplayHTML'] = f"<h1>{title}</h1><p>(Open MindMap Editor to view)</p>"
-    
-    col.add_note(note, 0)
-    return note.id
+
+
+def _build_display_html(title: str) -> str:
+    return f"<h1>{title}</h1><p>(Open MindMap Editor to view)</p>"

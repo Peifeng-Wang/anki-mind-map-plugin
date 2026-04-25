@@ -19,3 +19,12 @@
   - [x] Split `web/jsmind.js` into focused jsMind runtime modules with `require("web/jsmind.js")` and browser global behavior preserved.
   - [x] Split `web/main.js` into focused editor modules with Python/Qt `window` APIs and `pycmd` contracts preserved.
   - [x] Run `node --check`, `npm test`, `python -m py_compile mindmap_editor.py export_utils.py`, and `git diff --check`.
+- [x] Refactor six Python support files without changing existing behavior.
+  - [x] Refactor `mindmap_backup.py` with the existing public dialog API preserved. Rebuilt the broken/garbled dialog implementation around language, preview, export, and import helpers.
+  - [x] Refactor `export_utils.py` with export JSON schema, return tuples, and viewer-copy behavior preserved. Added focused helpers for field reads, payloads, JSON writing, and viewer copy.
+  - [x] Refactor `mindmap_manager.py` with manager UI callbacks and note side effects preserved. Split UI setup, field helpers, selection guards, JSON helpers, and linked-node cleanup.
+  - [x] Refactor `note_manager.py` with model schema, note creation fields, and public functions preserved. Added model-contract constants and testable creation/migration helpers.
+  - [x] Refactor `review_indicator.py` with hooks, pycmd contract, and indicator behavior preserved. Split link parsing, validation, JS rendering, and pycmd handling; stale indicators are removed after cleanup.
+  - [x] Refactor `usage_guide.py` with dialog API, language config, and guide rendering preserved. Replaced broken Chinese HTML with structured bilingual guide rendering and shared styles.
+  - [x] Add focused tests for all newly exposed/testable logic and regression-sensitive behavior. Added `tests/python_refactor_tests.py`.
+  - [x] Run Python tests, syntax checks, existing JS tests, and `git diff --check` until all pass. `py_compile`, Python unittest, `npm test`, and diff check pass.
