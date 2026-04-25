@@ -1,0 +1,21 @@
+MODEL_NAME = "MindMap Master"
+FIELD_TITLE = "Title"
+FIELD_DATA = "Data"
+FIELD_DISPLAY_HTML = "DisplayHTML"
+FIELD_UUID = "UUID"
+FIELD_ALLOW_NEW_CARDS = "AllowNewCards"
+MODEL_FIELDS = (
+    FIELD_TITLE,
+    FIELD_DATA,
+    FIELD_DISPLAY_HTML,
+    FIELD_UUID,
+    FIELD_ALLOW_NEW_CARDS,
+)
+CARD_TEMPLATE_NAME = "Card 1"
+CARD_TEMPLATE_QFMT = "{{Title}}<br>{{DisplayHTML}}"
+CARD_TEMPLATE_AFMT = "{{FrontSide}}"
+DEFAULT_ALLOW_NEW_CARDS = "1"
+DEFAULT_DECK_ID = 0
+ALLOW_NEW_CARDS_MIGRATION_MESSAGE = (
+    "Added AllowNewCards field to existing MindMap Master model"
+)

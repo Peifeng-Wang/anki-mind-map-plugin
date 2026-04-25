@@ -6,15 +6,29 @@ import json
 import os
 import uuid
 
-
-NOTE_QUERY = '"note:MindMap Master"'
-FIELD_TITLE = 'Title'
-FIELD_DATA = 'Data'
-FIELD_ALLOW_NEW_CARDS = 'AllowNewCards'
-ALLOW_NEW_CARDS_ENABLED = "1"
-ALLOW_NEW_CARDS_DISABLED = "0"
-ACTIVE_ICON = "✓"
-INACTIVE_ICON = "✗"
+from .manager.note_utils import (
+    FIELD_TITLE,
+    FIELD_DATA,
+    FIELD_ALLOW_NEW_CARDS,
+    ALLOW_NEW_CARDS_ENABLED,
+    ALLOW_NEW_CARDS_DISABLED,
+    ACTIVE_ICON,
+    INACTIVE_ICON,
+    NOTE_QUERY,
+    get_note_title,
+    get_allow_new_cards,
+    load_note_data,
+    save_note_data,
+    sync_root_title,
+)
+from .manager.linked_cleanup import (
+    cleanup_linked_nodes_on_delete,
+    get_linked_maps,
+    load_target_map,
+    remove_linked_node,
+    remove_node_by_id,
+    refresh_editor_if_open,
+)
 
 
 class MindMapManager(QDialog):
@@ -66,8 +80,8 @@ class MindMapManager(QDialog):
             ids = self.mw.col.find_notes(NOTE_QUERY)
             for nid in ids:
                 note = self.mw.col.get_note(nid)
-                title = self._get_note_title(note)
-                allow_new = self._get_allow_new_cards(note)
+                title = get_note_title(note)
+                allow_new = get_allow_new_cards(note)
                 status_icon = ACTIVE_ICON if allow_new == ALLOW_NEW_CARDS_ENABLED else INACTIVE_ICON
                 display_text = f"{status_icon} {title}"
 
@@ -90,29 +104,19 @@ class MindMapManager(QDialog):
         return self.notes[row][0]
 
     def _get_note_title(self, note):
-        return note[FIELD_TITLE]
+        return get_note_title(note)
 
     def _get_allow_new_cards(self, note):
-        try:
-            return note[FIELD_ALLOW_NEW_CARDS]
-        except KeyError:
-            # Default to enabled if older notes do not have this field.
-            return ALLOW_NEW_CARDS_ENABLED
+        return get_allow_new_cards(note)
 
     def _load_note_data(self, note):
-        return json.loads(note[FIELD_DATA])
+        return load_note_data(note)
 
     def _save_note_data(self, note, data):
-        note[FIELD_DATA] = json.dumps(data)
+        save_note_data(note, data)
 
     def _sync_root_title(self, note, new_title):
-        try:
-            data = self._load_note_data(note)
-            if data.get('nodeData') and data['nodeData'].get('id') == 'root':
-                data['nodeData']['topic'] = new_title
-                self._save_note_data(note, data)
-        except Exception:
-            pass
+        sync_root_title(note, new_title)
 
     def on_new(self):
         title, ok = getText("Enter a title for the new Mind Map:")
@@ -164,69 +168,22 @@ class MindMapManager(QDialog):
             self.refresh_list()
 
     def _cleanup_linked_nodes_on_delete(self, source_map_id):
-        """Remove linked nodes in other maps that point to this map"""
-        try:
-            source_note = self.mw.col.get_note(source_map_id)
-            source_data = self._load_note_data(source_note)
-            linked_maps = self._get_linked_maps(source_data)
-
-            for link in linked_maps:
-                target_map_id = link.get('targetMapId')
-                linked_node_id = link.get('linkedNodeId')
-
-                if not target_map_id or not linked_node_id:
-                    continue
-
-                try:
-                    target_note, target_data = self._load_target_map(target_map_id)
-                    self._remove_linked_node(target_data, linked_node_id)
-
-                    self._save_note_data(target_note, target_data)
-                    self.mw.col.update_note(target_note)
-
-                    print(f"Removed linked node {linked_node_id} from map {target_map_id}")
-                    self._refresh_editor_if_open(target_map_id)
-
-                except Exception as e:
-                    print(f"Error cleaning up linked node in map {target_map_id}: {e}")
-
-        except Exception as e:
-            print(f"Error during cleanup on delete: {e}")
+        cleanup_linked_nodes_on_delete(self.mw, source_map_id)
 
     def _get_linked_maps(self, map_data):
-        source_root = map_data.get('data', {})
-        return source_root.get('linkedMaps', [])
+        return get_linked_maps(map_data)
 
     def _load_target_map(self, target_map_id):
-        target_note = self.mw.col.get_note(target_map_id)
-        return target_note, self._load_note_data(target_note)
+        return load_target_map(self.mw, target_map_id)
 
     def _remove_linked_node(self, map_data, linked_node_id):
-        if 'data' in map_data:
-            self._remove_node_by_id(map_data['data'], linked_node_id)
+        remove_linked_node(map_data, linked_node_id)
 
     def _remove_node_by_id(self, node, node_id, parent_children_list=None, index=None):
-        if not isinstance(node, dict):
-            return False
-
-        if node.get('id') == node_id:
-            if parent_children_list is not None and index is not None:
-                parent_children_list.pop(index)
-                return True
-
-        if 'children' in node:
-            for child_index, child in enumerate(node['children']):
-                if self._remove_node_by_id(child, node_id, node['children'], child_index):
-                    return True
-
-        return False
+        return remove_node_by_id(node, node_id, parent_children_list, index)
 
     def _refresh_editor_if_open(self, target_map_id):
-        if hasattr(self.mw, 'mindmap_editors'):
-            for editor in self.mw.mindmap_editors:
-                if editor.note_id == target_map_id:
-                    editor._handle_refresh()
-                    break
+        refresh_editor_if_open(self.mw, target_map_id)
 
     def on_toggle_active(self):
         """Toggle whether this mind map allows new card associations"""

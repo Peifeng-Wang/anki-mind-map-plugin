@@ -2,71 +2,28 @@ import json
 from aqt import mw
 from anki.models import NotetypeDict
 
-MODEL_NAME = "MindMap Master"
-FIELD_TITLE = "Title"
-FIELD_DATA = "Data"
-FIELD_DISPLAY_HTML = "DisplayHTML"
-FIELD_UUID = "UUID"
-FIELD_ALLOW_NEW_CARDS = "AllowNewCards"
-MODEL_FIELDS = (
-    FIELD_TITLE,
+from .notes.config import (
+    ALLOW_NEW_CARDS_MIGRATION_MESSAGE,
+    CARD_TEMPLATE_AFMT,
+    CARD_TEMPLATE_NAME,
+    CARD_TEMPLATE_QFMT,
+    DEFAULT_ALLOW_NEW_CARDS,
+    DEFAULT_DECK_ID,
+    FIELD_ALLOW_NEW_CARDS,
     FIELD_DATA,
     FIELD_DISPLAY_HTML,
+    FIELD_TITLE,
     FIELD_UUID,
-    FIELD_ALLOW_NEW_CARDS,
+    MODEL_FIELDS,
+    MODEL_NAME,
 )
-CARD_TEMPLATE_NAME = "Card 1"
-CARD_TEMPLATE_QFMT = "{{Title}}<br>{{DisplayHTML}}"
-CARD_TEMPLATE_AFMT = "{{FrontSide}}"
-DEFAULT_ALLOW_NEW_CARDS = "1"
-DEFAULT_DECK_ID = 0
-ALLOW_NEW_CARDS_MIGRATION_MESSAGE = (
-    "Added AllowNewCards field to existing MindMap Master model"
+from .notes.model import (
+    _create_mindmap_model,
+    _ensure_mindmap_model_schema,
+    _get_or_create_mindmap_model,
+    _model_has_field,
+    get_or_create_mindmap_model,
 )
-
-
-def get_or_create_mindmap_model() -> NotetypeDict:
-    """
-    Retrieves the MindMap Master note type, creating it if it doesn't exist.
-    """
-    return _get_or_create_mindmap_model(mw.col)
-
-
-def _get_or_create_mindmap_model(col) -> NotetypeDict:
-    model = col.models.by_name(MODEL_NAME)
-
-    if model:
-        _ensure_mindmap_model_schema(col, model)
-        return model
-
-    return _create_mindmap_model(col)
-
-
-def _ensure_mindmap_model_schema(col, model: NotetypeDict) -> None:
-    """Apply compatible schema migrations to an existing mind map note type."""
-    if not _model_has_field(model, FIELD_ALLOW_NEW_CARDS):
-        col.models.add_field(model, col.models.new_field(FIELD_ALLOW_NEW_CARDS))
-        col.models.save(model)
-        print(ALLOW_NEW_CARDS_MIGRATION_MESSAGE)
-
-
-def _model_has_field(model: NotetypeDict, field_name: str) -> bool:
-    return any(field["name"] == field_name for field in model["flds"])
-
-
-def _create_mindmap_model(col) -> NotetypeDict:
-    model = col.models.new(MODEL_NAME)
-
-    for field_name in MODEL_FIELDS:
-        col.models.add_field(model, col.models.new_field(field_name))
-
-    template = col.models.new_template(CARD_TEMPLATE_NAME)
-    template["qfmt"] = CARD_TEMPLATE_QFMT
-    template["afmt"] = CARD_TEMPLATE_AFMT
-    col.models.add_template(model, template)
-
-    col.models.add(model)
-    return model
 
 
 def create_new_mindmap_note(title: str, uuid_str: str) -> int:
