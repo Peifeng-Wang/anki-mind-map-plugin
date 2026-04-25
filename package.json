@@ -1,0 +1,6 @@
+{
+  "scripts": {
+    "test": "node tests/refactor_regression.test.js"
+  },
+  "devDependencies": {}
+}

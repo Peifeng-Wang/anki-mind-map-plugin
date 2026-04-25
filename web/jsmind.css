@@ -13,11 +13,6 @@
     width: 100%;
     height: 100%;
     outline: none;
-}
-
-/*box-shadow:0 0 2px #000;*/
-.jsmind-inner {
-    moz-user-select: -moz-none;
     -moz-user-select: none;
     -o-user-select: none;
     -khtml-user-select: none;
@@ -67,6 +62,7 @@ jmexpander {
     border-radius: 6px;
     border-width: 1px;
     border-style: solid;
+    border-color: gray;
     cursor: pointer;
 }
 
@@ -108,10 +104,6 @@ jmnode.root {
     font-size: 24px;
 }
 
-jmexpander {
-    border-color: gray;
-}
-
 jmexpander:hover {
     border-color: #000;
 }
@@ -139,7 +131,7 @@ jmnodes.theme-modern-premium jmnode {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
     font: 16px/1.5 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-weight: 500;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1), font-size 0.3s cubic-bezier(0.4, 0, 0.2, 1), font-weight 0.3s cubic-bezier(0.4, 0, 0.2, 1), letter-spacing 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 jmnodes.theme-modern-premium jmnode::before {
@@ -196,7 +188,7 @@ jmnodes.theme-modern-premium jmexpander {
     color: white;
     font-weight: bold;
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-    transition: all 0.3s ease;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, border-width 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease, width 0.3s ease, height 0.3s ease, border-radius 0.3s ease, font-weight 0.3s ease;
     width: 16px;
     height: 16px;
     border-radius: 8px;
@@ -225,12 +217,6 @@ jmnodes.theme-primary jmnode.selected {
     color: #fff;
 }
 
-jmnodes.theme-primary jmnode.root {}
-
-jmnodes.theme-primary jmexpander {}
-
-jmnodes.theme-primary jmexpander:hover {}
-
 /* warning theme */
 jmnodes.theme-warning jmnode {
     background-color: #f0ad4e;
@@ -242,17 +228,6 @@ jmnodes.theme-warning jmnode:hover {
     background-color: #ed9c28;
     border-color: #d58512;
 }
-
-jmnodes.theme-warning jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-warning jmnode.root {}
-
-jmnodes.theme-warning jmexpander {}
-
-jmnodes.theme-warning jmexpander:hover {}
 
 /* danger theme */
 jmnodes.theme-danger jmnode {
@@ -266,17 +241,6 @@ jmnodes.theme-danger jmnode:hover {
     border-color: #ac2925;
 }
 
-jmnodes.theme-danger jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-danger jmnode.root {}
-
-jmnodes.theme-danger jmexpander {}
-
-jmnodes.theme-danger jmexpander:hover {}
-
 /* success theme */
 jmnodes.theme-success jmnode {
     background-color: #5cb85c;
@@ -288,17 +252,6 @@ jmnodes.theme-success jmnode:hover {
     background-color: #47a447;
     border-color: #398439;
 }
-
-jmnodes.theme-success jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-success jmnode.root {}
-
-jmnodes.theme-success jmexpander {}
-
-jmnodes.theme-success jmexpander:hover {}
 
 /* info theme */
 jmnodes.theme-info jmnode {
@@ -312,17 +265,6 @@ jmnodes.theme-info jmnode:hover {
     border-color: #269abc;
 }
 
-jmnodes.theme-info jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-info jmnode.root {}
-
-jmnodes.theme-info jmexpander {}
-
-jmnodes.theme-info jmexpander:hover {}
-
 /* greensea theme */
 jmnodes.theme-greensea jmnode {
     background-color: #1abc9c;
@@ -332,17 +274,6 @@ jmnodes.theme-greensea jmnode {
 jmnodes.theme-greensea jmnode:hover {
     background-color: #16a085;
 }
-
-jmnodes.theme-greensea jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-greensea jmnode.root {}
-
-jmnodes.theme-greensea jmexpander {}
-
-jmnodes.theme-greensea jmexpander:hover {}
 
 /* nephrite theme */
 jmnodes.theme-nephrite jmnode {
@@ -354,17 +285,6 @@ jmnodes.theme-nephrite jmnode:hover {
     background-color: #27ae60;
 }
 
-jmnodes.theme-nephrite jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-nephrite jmnode.root {}
-
-jmnodes.theme-nephrite jmexpander {}
-
-jmnodes.theme-nephrite jmexpander:hover {}
-
 /* belizehole theme */
 jmnodes.theme-belizehole jmnode {
     background-color: #3498db;
@@ -374,17 +294,6 @@ jmnodes.theme-belizehole jmnode {
 jmnodes.theme-belizehole jmnode:hover {
     background-color: #2980b9;
 }
-
-jmnodes.theme-belizehole jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-belizehole jmnode.root {}
-
-jmnodes.theme-belizehole jmexpander {}
-
-jmnodes.theme-belizehole jmexpander:hover {}
 
 /* wisteria theme */
 jmnodes.theme-wisteria jmnode {
@@ -396,17 +305,6 @@ jmnodes.theme-wisteria jmnode:hover {
     background-color: #8e44ad;
 }
 
-jmnodes.theme-wisteria jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-wisteria jmnode.root {}
-
-jmnodes.theme-wisteria jmexpander {}
-
-jmnodes.theme-wisteria jmexpander:hover {}
-
 /* asphalt theme */
 jmnodes.theme-asphalt jmnode {
     background-color: #34495e;
@@ -416,17 +314,6 @@ jmnodes.theme-asphalt jmnode {
 jmnodes.theme-asphalt jmnode:hover {
     background-color: #2c3e50;
 }
-
-jmnodes.theme-asphalt jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-asphalt jmnode.root {}
-
-jmnodes.theme-asphalt jmexpander {}
-
-jmnodes.theme-asphalt jmexpander:hover {}
 
 /* orange theme */
 jmnodes.theme-orange jmnode {
@@ -438,17 +325,6 @@ jmnodes.theme-orange jmnode:hover {
     background-color: #f39c12;
 }
 
-jmnodes.theme-orange jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-orange jmnode.root {}
-
-jmnodes.theme-orange jmexpander {}
-
-jmnodes.theme-orange jmexpander:hover {}
-
 /* pumpkin theme */
 jmnodes.theme-pumpkin jmnode {
     background-color: #e67e22;
@@ -458,17 +334,6 @@ jmnodes.theme-pumpkin jmnode {
 jmnodes.theme-pumpkin jmnode:hover {
     background-color: #d35400;
 }
-
-jmnodes.theme-pumpkin jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-pumpkin jmnode.root {}
-
-jmnodes.theme-pumpkin jmexpander {}
-
-jmnodes.theme-pumpkin jmexpander:hover {}
 
 /* pomegranate theme */
 jmnodes.theme-pomegranate jmnode {
@@ -480,17 +345,6 @@ jmnodes.theme-pomegranate jmnode:hover {
     background-color: #c0392b;
 }
 
-jmnodes.theme-pomegranate jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-pomegranate jmnode.root {}
-
-jmnodes.theme-pomegranate jmexpander {}
-
-jmnodes.theme-pomegranate jmexpander:hover {}
-
 /* clouds theme */
 jmnodes.theme-clouds jmnode {
     background-color: #ecf0f1;
@@ -500,17 +354,6 @@ jmnodes.theme-clouds jmnode {
 jmnodes.theme-clouds jmnode:hover {
     background-color: #bdc3c7;
 }
-
-jmnodes.theme-clouds jmnode.selected {
-    background-color: #11f;
-    color: #fff;
-}
-
-jmnodes.theme-clouds jmnode.root {}
-
-jmnodes.theme-clouds jmexpander {}
-
-jmnodes.theme-clouds jmexpander:hover {}
 
 /* asbestos theme */
 jmnodes.theme-asbestos jmnode {
@@ -522,13 +365,21 @@ jmnodes.theme-asbestos jmnode:hover {
     background-color: #7f8c8d;
 }
 
+/* Traditional themes share selected colors. */
+jmnodes.theme-warning jmnode.selected,
+jmnodes.theme-danger jmnode.selected,
+jmnodes.theme-success jmnode.selected,
+jmnodes.theme-info jmnode.selected,
+jmnodes.theme-greensea jmnode.selected,
+jmnodes.theme-nephrite jmnode.selected,
+jmnodes.theme-belizehole jmnode.selected,
+jmnodes.theme-wisteria jmnode.selected,
+jmnodes.theme-asphalt jmnode.selected,
+jmnodes.theme-orange jmnode.selected,
+jmnodes.theme-pumpkin jmnode.selected,
+jmnodes.theme-pomegranate jmnode.selected,
+jmnodes.theme-clouds jmnode.selected,
 jmnodes.theme-asbestos jmnode.selected {
     background-color: #11f;
     color: #fff;
 }
-
-jmnodes.theme-asbestos jmnode.root {}
-
-jmnodes.theme-asbestos jmexpander {}
-
-jmnodes.theme-asbestos jmexpander:hover {}

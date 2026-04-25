@@ -1,0 +1,13 @@
+- [x] Establish refactor/test baseline for `web` files. Node and npm are available; no existing test harness was found.
+- [x] Refactor `web/jsmind.css` with no behavior/style changes. Merged duplicate base rules, removed empty theme placeholders, and moved merged selected rules after theme hover rules.
+- [x] Refactor `web/jsmind.draggable.js` with no drag behavior changes. Added small helpers for coordinates, lookup timer cleanup, and state reset.
+- [x] Refactor `web/jsmind.js` with no public API behavior changes. Added node resolution/editable helpers and drag canvas constants.
+- [x] Refactor `web/main.js` with no editor behavior changes. Removed unreachable duplicate `focusNode` and shared save payload construction.
+- [x] Refactor `web/standalone_viewer.html` with no viewer behavior changes. Replaced inline handlers with explicit initialization and event binding.
+- [x] Refactor `web/style.css` with no behavior/style changes. Consolidated badge/link indicator shared declarations and map-link sizing declarations.
+- [x] Add sufficient regression tests for the refactored behavior. Added pure Node regression coverage in `tests/refactor_regression.test.js`.
+- [x] Run verification until all tests pass. `npm test` and `git diff --check` pass.
+- [x] Final review and notes.
+- [x] Apply visual-equivalent performance optimizations to the six `web` files. Limited changes to explicit transitions, cached DOM references, duplicate work guards, iterative lookup, SVG clear batching, and history string caching.
+- [x] Extend regression tests for the performance optimizations. Added checks for no `transition: all`, DOM caching/fragment use, highlight no-op behavior, SVG clear batching, iterative lookup, update-node guard, and history cache alignment.
+- [x] Re-run verification until all tests pass. `npm test`, `node --check` for JS files, and `git diff --check` pass.

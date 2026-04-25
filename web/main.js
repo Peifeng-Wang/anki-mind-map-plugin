@@ -5,6 +5,7 @@ var autoSaveDelay = 2000;
 var mindMapHistory = [];
 var mindMapHistoryIndex = -1;
 var maxHistory = 50;
+var mindMapHistoryStateStrings = [];
 
 var selectedNodes = [];
 var isEditing = false;
@@ -279,6 +280,39 @@ function getOrCreateOverlayLayer(parent, layerId, zIndex, pointerEvents, setZoom
         layer.style.zoom = '';
     }
     return layer;
+}
+
+function scheduleNodeEditAutoSave() {
+    if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+    }
+    autoSaveTimeout = setTimeout(function () {
+        console.log('Auto-saving after node edit...');
+        autoSave();
+    }, 300);
+}
+
+function installUpdateNodeTracking(logPrefix) {
+    if (!jm || typeof jm.update_node !== 'function') return;
+
+    if (jm.update_node._ankiMindMapTracksChanges) {
+        jm.update_node._ankiMindMapLogPrefix = logPrefix;
+        return;
+    }
+
+    var originalUpdateNode = jm.update_node;
+    var trackedUpdateNode = function (nodeid, topic) {
+        var result = originalUpdateNode.call(jm, nodeid, topic);
+        changedNodes.add(nodeid);
+        console.log(trackedUpdateNode._ankiMindMapLogPrefix, nodeid, 'New topic:', topic);
+        scheduleNodeEditAutoSave();
+        return result;
+    };
+
+    trackedUpdateNode._ankiMindMapTracksChanges = true;
+    trackedUpdateNode._ankiMindMapLogPrefix = logPrefix;
+    trackedUpdateNode._ankiMindMapOriginal = originalUpdateNode;
+    jm.update_node = trackedUpdateNode;
 }
 
 function toggleWrapSelection(textarea, openTag, closeTag) {
@@ -677,26 +711,7 @@ function initEditor(data) {
 
         console.log("jsMind initialized");
 
-        // Override update_node method to track changes and auto-save
-        if (jm && jm.update_node) {
-            var originalUpdateNode = jm.update_node;
-            jm.update_node = function (nodeid, topic) {
-                var result = originalUpdateNode.call(jm, nodeid, topic);
-                changedNodes.add(nodeid);
-                console.log('Node changed:', nodeid, 'New topic:', topic);
-
-                // Auto-save immediately (short delay to merge rapid edits)
-                if (autoSaveTimeout) {
-                    clearTimeout(autoSaveTimeout);
-                }
-                autoSaveTimeout = setTimeout(function () {
-                    console.log('Auto-saving after node edit...');
-                    autoSave();
-                }, 300); // 300ms delay, enough to merge edits without losing data
-
-                return result;
-            };
-        }
+        installUpdateNodeTracking('Node changed:');
 
         // Mark nodes linked to cards after initial render
         setTimeout(markLinkedNodes, 100);
@@ -1241,6 +1256,7 @@ window.saveHistory = function () {
     try {
         if (!Array.isArray(mindMapHistory)) {
             mindMapHistory = [];
+            mindMapHistoryStateStrings = [];
             mindMapHistoryIndex = -1;
         }
 
@@ -1256,18 +1272,25 @@ window.saveHistory = function () {
         var currentStateStr = JSON.stringify(currentState);
 
         if (mindMapHistoryIndex >= 0 && mindMapHistory[mindMapHistoryIndex]) {
-            var lastStateStr = JSON.stringify(mindMapHistory[mindMapHistoryIndex]);
+            var lastStateStr = mindMapHistoryStateStrings[mindMapHistoryIndex];
+            if (typeof lastStateStr !== 'string') {
+                lastStateStr = JSON.stringify(mindMapHistory[mindMapHistoryIndex]);
+                mindMapHistoryStateStrings[mindMapHistoryIndex] = lastStateStr;
+            }
             if (currentStateStr === lastStateStr) return;
         }
 
         if (mindMapHistoryIndex < mindMapHistory.length - 1) {
             mindMapHistory = mindMapHistory.slice(0, mindMapHistoryIndex + 1);
+            mindMapHistoryStateStrings = mindMapHistoryStateStrings.slice(0, mindMapHistoryIndex + 1);
         }
 
         mindMapHistory.push(JSON.parse(currentStateStr));
+        mindMapHistoryStateStrings.push(currentStateStr);
 
         if (mindMapHistory.length > maxHistory) {
             mindMapHistory.shift();
+            mindMapHistoryStateStrings.shift();
         } else {
             mindMapHistoryIndex++;
         }
@@ -1352,78 +1375,84 @@ function scheduleAutoSave() {
     }, autoSaveDelay);
 }
 
+function collectFloatingNodesData() {
+    return floatingNodes.map(function (node) {
+        return {
+            id: node.id,
+            topic: node.topic,
+            x: node.x,
+            y: node.y
+        };
+    });
+}
+
+function collectChangedNodesData() {
+    var changedNodesData = [];
+    changedNodes.forEach(function (nodeId) {
+        var node = jm.get_node(nodeId);
+        if (!node) return;
+
+        // jsMind stores custom data in node.data
+        var noteId = node.data && node.data.noteId;
+        var isMapLink = node.data && node.data.isMapLink;
+        var sourceMapId = node.data && node.data.sourceMapId;
+        var hasLinkedMaps = node.isroot && node.data && node.data.linkedMaps;
+
+        // Include nodes with linked cards
+        if (noteId) {
+            changedNodesData.push({
+                id: nodeId,
+                topic: node.topic,
+                noteId: noteId
+            });
+        }
+
+        // Include map-linked nodes for sync
+        if (isMapLink && sourceMapId) {
+            changedNodesData.push({
+                id: nodeId,
+                topic: node.topic,
+                isMapLink: true,
+                sourceMapId: sourceMapId
+            });
+        }
+
+        // Include root nodes with linkedMaps for sync
+        if (hasLinkedMaps) {
+            changedNodesData.push({
+                id: nodeId,
+                topic: node.topic,
+                hasLinkedMaps: true,
+                linkedMaps: node.data.linkedMaps
+            });
+        }
+    });
+    return changedNodesData;
+}
+
+function buildSavePayload() {
+    var mind_data = jm.get_data('node_tree');
+    var container = document.getElementById('jsmind_container');
+
+    return {
+        data: mind_data,
+        image_html: container ? container.innerHTML : "",
+        arrows: arrows,
+        floatingNodes: collectFloatingNodesData(),
+        summaryBraces: summaryBraces,
+        boundaries: boundaries,
+        changedNodes: collectChangedNodesData()
+    };
+}
+
 function autoSave() {
     if (!jm) return;
 
     try {
-        var mind_data = jm.get_data('node_tree');
-        var container = document.getElementById('jsmind_container');
+        var payload = buildSavePayload();
 
-        // Save floating nodes data
-        var floatingNodesData = floatingNodes.map(function (node) {
-            return {
-                id: node.id,
-                topic: node.topic,
-                x: node.x,
-                y: node.y
-            };
-        });
-
-        // Collect changed node information
-        var changedNodesData = [];
-        changedNodes.forEach(function (nodeId) {
-            var node = jm.get_node(nodeId);
-            if (!node) return;
-
-            // jsMind stores custom data in node.data
-            var noteId = node.data && node.data.noteId;
-            var isMapLink = node.data && node.data.isMapLink;
-            var sourceMapId = node.data && node.data.sourceMapId;
-            var hasLinkedMaps = node.isroot && node.data && node.data.linkedMaps;
-
-            // Include nodes with linked cards
-            if (noteId) {
-                changedNodesData.push({
-                    id: nodeId,
-                    topic: node.topic,
-                    noteId: noteId
-                });
-            }
-
-            // Include map-linked nodes for sync
-            if (isMapLink && sourceMapId) {
-                changedNodesData.push({
-                    id: nodeId,
-                    topic: node.topic,
-                    isMapLink: true,
-                    sourceMapId: sourceMapId
-                });
-            }
-
-            // Include root nodes with linkedMaps for sync
-            if (hasLinkedMaps) {
-                changedNodesData.push({
-                    id: nodeId,
-                    topic: node.topic,
-                    hasLinkedMaps: true,
-                    linkedMaps: node.data.linkedMaps
-                });
-            }
-        });
-
-        console.log('AutoSaving... Data nodes count:', mind_data.data ? countNodes(mind_data.data) : 0);
-        console.log('Changed nodes to sync:', changedNodesData);
-
-        var payload = {
-            data: mind_data,
-            image_html: container ? container.innerHTML : "",
-            arrows: arrows,
-            floatingNodes: floatingNodesData,
-            summaryBraces: summaryBraces,
-            boundaries: boundaries,
-            changedNodes: changedNodesData
-        };
-
+        console.log('AutoSaving... Data nodes count:', payload.data.data ? countNodes(payload.data.data) : 0);
+        console.log('Changed nodes to sync:', payload.changedNodes);
 
         pycmd("save:" + JSON.stringify(payload));
 
@@ -1545,72 +1574,10 @@ function addSibling() {
 function saveMap() {
     if (!jm) return;
     try {
-        var mind_data = jm.get_data('node_tree');
-        var container = document.getElementById('jsmind_container');
+        var payload = buildSavePayload();
 
-        // Save floating nodes data
-        var floatingNodesData = floatingNodes.map(function (node) {
-            return {
-                id: node.id,
-                topic: node.topic,
-                x: node.x,
-                y: node.y
-            };
-        });
+        console.log('Changed nodes to sync:', payload.changedNodes);
 
-        // Collect changed node information
-        var changedNodesData = [];
-        changedNodes.forEach(function (nodeId) {
-            var node = jm.get_node(nodeId);
-            if (!node) return;
-
-            // jsMind stores custom data in node.data
-            var noteId = node.data && node.data.noteId;
-            var isMapLink = node.data && node.data.isMapLink;
-            var sourceMapId = node.data && node.data.sourceMapId;
-            var hasLinkedMaps = node.isroot && node.data && node.data.linkedMaps;
-
-            // Include nodes with linked cards
-            if (noteId) {
-                changedNodesData.push({
-                    id: nodeId,
-                    topic: node.topic,
-                    noteId: noteId
-                });
-            }
-
-            // Include map-linked nodes for sync
-            if (isMapLink && sourceMapId) {
-                changedNodesData.push({
-                    id: nodeId,
-                    topic: node.topic,
-                    isMapLink: true,
-                    sourceMapId: sourceMapId
-                });
-            }
-
-            // Include root nodes with linkedMaps for sync
-            if (hasLinkedMaps) {
-                changedNodesData.push({
-                    id: nodeId,
-                    topic: node.topic,
-                    hasLinkedMaps: true,
-                    linkedMaps: node.data.linkedMaps
-                });
-            }
-        });
-
-        console.log('Changed nodes to sync:', changedNodesData);
-
-        var payload = {
-            data: mind_data,
-            image_html: container ? container.innerHTML : "",
-            arrows: arrows,
-            floatingNodes: floatingNodesData,
-            summaryBraces: summaryBraces,
-            boundaries: boundaries,
-            changedNodes: changedNodesData
-        };
         pycmd("save:" + JSON.stringify(payload));
 
 
@@ -1704,25 +1671,7 @@ function reloadMapData(data) {
         jm.show(data);
 
         // Re-setup the update_node override after reload
-        if (jm && jm.update_node) {
-            var originalUpdateNode = jm.update_node;
-            jm.update_node = function (nodeid, topic) {
-                var result = originalUpdateNode.call(jm, nodeid, topic);
-                changedNodes.add(nodeid);
-                console.log('Node changed after reload:', nodeid, 'New topic:', topic);
-
-                // Auto-save immediately
-                if (autoSaveTimeout) {
-                    clearTimeout(autoSaveTimeout);
-                }
-                autoSaveTimeout = setTimeout(function () {
-                    console.log('Auto-saving after node edit...');
-                    autoSave();
-                }, 300);
-
-                return result;
-            };
-        }
+        installUpdateNodeTracking('Node changed after reload:');
 
         // Restore scroll position
         if (container) {
@@ -4166,25 +4115,6 @@ document.addEventListener('contextmenu', function (e) {
 }, true);
 
 // --- Card Linking Features ---
-
-// Focus a node by ID
-function focusNode(nodeId) {
-    if (!jm) return;
-    var node = jm.get_node(nodeId);
-    if (node) {
-        jm.select_node(nodeId);
-        var element = jm.view.get_node_element(node);
-        if (element) {
-            element.scrollIntoView({ block: "center", inline: "center" });
-            // Add a visual highlight effect
-            element.style.transition = "box-shadow 0.5s";
-            element.style.boxShadow = "0 0 20px #ffeb3b";
-            setTimeout(function () {
-                element.style.boxShadow = "";
-            }, 2000);
-        }
-    }
-}
 
 function toggleSelectedNodeCollapse() {
     if (!jm) return false;

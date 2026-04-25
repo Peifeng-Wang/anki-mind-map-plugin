@@ -192,8 +192,8 @@
             </p>
         </div>
         <div class="lang-toggle">
-            <button id="btnEn" class="active" onclick="switchLanguage('en')">English</button>
-            <button id="btnCn" onclick="switchLanguage('cn')">中文</button>
+            <button id="btnEn" class="active">English</button>
+            <button id="btnCn">中文</button>
         </div>
     </div>
 
@@ -225,9 +225,9 @@
         <div id="jsmind_container" style="display: none;"></div>
 
         <div class="toolbar" id="toolbar">
-            <button onclick="centerRoot()" id="btnCenter">🎯 Center</button>
-            <button onclick="zoomIn()" id="btnZoomIn">🔍 Zoom In</button>
-            <button onclick="zoomOut()" id="btnZoomOut">🔎 Zoom Out</button>
+            <button id="btnCenter">🎯 Center</button>
+            <button id="btnZoomIn">🔍 Zoom In</button>
+            <button id="btnZoomOut">🔎 Zoom Out</button>
         </div>
     </div>
 
@@ -239,6 +239,7 @@
         let jm = null;
         let currentData = null;
         let currentLang = 'en'; // Default to English
+        const elements = {};
 
         const texts = {
             en: {
@@ -279,20 +280,20 @@
             currentLang = lang;
 
             // Update button styles
-            document.getElementById('btnEn').classList.toggle('active', lang === 'en');
-            document.getElementById('btnCn').classList.toggle('active', lang === 'cn');
+            elements.btnEn.classList.toggle('active', lang === 'en');
+            elements.btnCn.classList.toggle('active', lang === 'cn');
 
             // Update UI text
             const t = texts[lang];
-            document.getElementById('title').textContent = t.title;
-            document.getElementById('subtitle').textContent = t.subtitle;
-            document.getElementById('fileLabel').textContent = t.fileLabel;
-            document.getElementById('selectPlaceholder').textContent = t.selectPlaceholder;
-            document.getElementById('welcomeTitle').textContent = t.welcomeTitle;
-            document.getElementById('welcomeText').innerHTML = t.welcomeText;
-            document.getElementById('btnCenter').innerHTML = t.btnCenter;
-            document.getElementById('btnZoomIn').innerHTML = t.btnZoomIn;
-            document.getElementById('btnZoomOut').innerHTML = t.btnZoomOut;
+            elements.title.textContent = t.title;
+            elements.subtitle.textContent = t.subtitle;
+            elements.fileLabel.textContent = t.fileLabel;
+            elements.selectPlaceholder.textContent = t.selectPlaceholder;
+            elements.welcomeTitle.textContent = t.welcomeTitle;
+            elements.welcomeText.innerHTML = t.welcomeText;
+            elements.btnCenter.innerHTML = t.btnCenter;
+            elements.btnZoomIn.innerHTML = t.btnZoomIn;
+            elements.btnZoomOut.innerHTML = t.btnZoomOut;
 
             // Save preference to localStorage
             try {
@@ -300,15 +301,7 @@
             } catch (e) { }
         }
 
-        // Load saved language preference
-        try {
-            const savedLang = localStorage.getItem('mindmap_viewer_lang');
-            if (savedLang && (savedLang === 'en' || savedLang === 'cn')) {
-                switchLanguage(savedLang);
-            }
-        } catch (e) { }
-
-        document.getElementById('fileInput').addEventListener('change', function (e) {
+        function handleFileInputChange(e) {
             const file = e.target.files[0];
             if (!file) return;
 
@@ -322,26 +315,62 @@
                 }
             };
             reader.readAsText(file);
-        });
+        }
+
+        function cacheElements() {
+            [
+                'btnEn', 'btnCn', 'btnCenter', 'btnZoomIn', 'btnZoomOut',
+                'fileInput', 'welcomeScreen', 'jsmind_container', 'toolbar',
+                'mindmapSelector', 'infoText', 'title', 'subtitle', 'fileLabel',
+                'selectPlaceholder', 'welcomeTitle', 'welcomeText'
+            ].forEach(id => {
+                elements[id] = document.getElementById(id);
+            });
+        }
+
+        function init() {
+            cacheElements();
+
+            elements.btnEn.addEventListener('click', function () {
+                switchLanguage('en');
+            });
+            elements.btnCn.addEventListener('click', function () {
+                switchLanguage('cn');
+            });
+            elements.btnCenter.addEventListener('click', centerRoot);
+            elements.btnZoomIn.addEventListener('click', zoomIn);
+            elements.btnZoomOut.addEventListener('click', zoomOut);
+            elements.fileInput.addEventListener('change', handleFileInputChange);
+
+            // Load saved language preference
+            try {
+                const savedLang = localStorage.getItem('mindmap_viewer_lang');
+                if (savedLang && (savedLang === 'en' || savedLang === 'cn')) {
+                    switchLanguage(savedLang);
+                }
+            } catch (e) { }
+        }
 
         function loadBackupData(data) {
-            document.getElementById('welcomeScreen').style.display = 'none';
-            document.getElementById('jsmind_container').style.display = 'block';
-            document.getElementById('toolbar').style.display = 'block';
+            elements.welcomeScreen.style.display = 'none';
+            elements.jsmind_container.style.display = 'block';
+            elements.toolbar.style.display = 'block';
 
             currentData = data;
 
             if (data.mindmaps && Array.isArray(data.mindmaps)) {
-                const selector = document.getElementById('mindmapSelector');
+                const selector = elements.mindmapSelector;
                 selector.style.display = 'block';
                 selector.innerHTML = `<option value="">${texts[currentLang].selectPlaceholder}</option>`;
 
+                const fragment = document.createDocumentFragment();
                 data.mindmaps.forEach((mm, index) => {
                     const option = document.createElement('option');
                     option.value = index;
                     option.textContent = mm.title;
-                    selector.appendChild(option);
+                    fragment.appendChild(option);
                 });
+                selector.appendChild(fragment);
 
                 selector.onchange = function () {
                     if (this.value !== '') {
@@ -353,18 +382,18 @@
                 if (data.mindmaps.length > 0) {
                     displayMindMap(data.mindmaps[0].data, data.mindmaps[0].title);
                     selector.value = '0';
-                    document.getElementById('infoText').textContent =
+                    elements.infoText.textContent =
                         texts[currentLang].loaded + data.mindmaps.length + texts[currentLang].mindmaps;
                 }
             } else {
                 const title = data.title || 'Mind Map';
                 displayMindMap(data.data || data, title);
-                document.getElementById('infoText').textContent = texts[currentLang].loadedSingle + title;
+                elements.infoText.textContent = texts[currentLang].loadedSingle + title;
             }
         }
 
         function displayMindMap(mindData, title) {
-            const container = document.getElementById('jsmind_container');
+            const container = elements.jsmind_container;
             container.innerHTML = '';
 
             let displayData = mindData;
@@ -407,7 +436,7 @@
 
         function centerRoot() {
             if (!jm) return;
-            const container = document.getElementById('jsmind_container');
+            const container = elements.jsmind_container;
             const rootNode = container.querySelector('jmnode.root');
             if (rootNode) {
                 const rect = rootNode.getBoundingClientRect();
@@ -434,6 +463,8 @@
                 node.style.fontSize = (currentSize * 0.9) + 'px';
             });
         }
+
+        init();
     </script>
 </body>
 

@@ -47,6 +47,9 @@
     // detect isElement
     var $i = function (el) { return !!el && (typeof el === 'object') && (el.nodeType === 1) && (typeof el.style === 'object') && (typeof el.ownerDocument === 'object'); };
     if (typeof String.prototype.startsWith != 'function') { String.prototype.startsWith = function (p) { return this.slice(0, p.length) === p; }; }
+    var VIEW_DRAG_INITIAL_BUFFER = 2000;
+    var VIEW_DRAG_EXPAND_THRESHOLD = 200;
+    var VIEW_DRAG_EXPAND_SIZE = 2000;
 
     var DEFAULT_OPTIONS = {
         container: '',   // id of the container
@@ -1166,21 +1169,14 @@
         },
 
         begin_edit: function (node) {
-            if (!jm.util.is_node(node)) {
-                var the_node = this.get_node(node);
-                if (!the_node) {
-                    logger.error('the node[id=' + node + '] can not be found.');
-                    return false;
-                } else {
-                    return this.begin_edit(the_node);
-                }
+            node = this._resolve_node(node);
+            if (!node) {
+                return false;
             }
-            if (this.get_editable()) {
-                this.view.edit_node_begin(node);
-            } else {
-                logger.error('fail, this mind map is not editable.');
+            if (!this._require_editable('fail, this mind map is not editable.')) {
                 return;
             }
+            this.view.edit_node_begin(node);
         },
 
         end_edit: function () {
@@ -1188,15 +1184,8 @@
         },
 
         toggle_node: function (node) {
-            if (!jm.util.is_node(node)) {
-                var the_node = this.get_node(node);
-                if (!the_node) {
-                    logger.error('the node[id=' + node + '] can not be found.');
-                    return;
-                } else {
-                    return this.toggle_node(the_node);
-                }
-            }
+            node = this._resolve_node(node);
+            if (!node) { return; }
             if (node.isroot) { return; }
             this.view.save_location(node);
             this.layout.toggle_node(node);
@@ -1205,15 +1194,8 @@
         },
 
         expand_node: function (node) {
-            if (!jm.util.is_node(node)) {
-                var the_node = this.get_node(node);
-                if (!the_node) {
-                    logger.error('the node[id=' + node + '] can not be found.');
-                    return;
-                } else {
-                    return this.expand_node(the_node);
-                }
-            }
+            node = this._resolve_node(node);
+            if (!node) { return; }
             if (node.isroot) { return; }
             this.view.save_location(node);
             this.layout.expand_node(node);
@@ -1222,15 +1204,8 @@
         },
 
         collapse_node: function (node) {
-            if (!jm.util.is_node(node)) {
-                var the_node = this.get_node(node);
-                if (!the_node) {
-                    logger.error('the node[id=' + node + '] can not be found.');
-                    return;
-                } else {
-                    return this.collapse_node(the_node);
-                }
-            }
+            node = this._resolve_node(node);
+            if (!node) { return; }
             if (node.isroot) { return; }
             this.view.save_location(node);
             this.layout.collapse_node(node);
@@ -1311,154 +1286,149 @@
             return this.mind.get_node(node);
         },
 
-        add_node: function (parent_node, nodeid, topic, data, direction) {
-            if (this.get_editable()) {
-                var the_parent_node = this.get_node(parent_node);
-                var dir = jm.direction.of(direction)
-                if (dir === undefined) {
-                    dir = this.layout.calculate_next_child_direction(the_parent_node);
-                }
-                var node = this.mind.add_node(the_parent_node, nodeid, topic, data, dir);
-                if (!!node) {
-                    this.view.add_node(node);
-                    this.layout.layout();
-                    this.view.show(false);
-                    this.view.reset_node_custom_style(node);
-                    this.expand_node(the_parent_node);
-                    this.invoke_event_handle(jm.event_type.edit, { evt: 'add_node', data: [the_parent_node.id, nodeid, topic, data, dir], node: nodeid });
-                }
+        _resolve_node: function (node) {
+            if (jm.util.is_node(node)) {
                 return node;
-            } else {
-                logger.error('fail, this mind map is not editable');
+            }
+            var the_node = this.get_node(node);
+            if (!the_node) {
+                logger.error('the node[id=' + node + '] can not be found.');
+            }
+            return the_node;
+        },
+
+        _require_editable: function (message) {
+            if (this.get_editable()) {
+                return true;
+            }
+            logger.error(message || 'fail, this mind map is not editable');
+            return false;
+        },
+
+        add_node: function (parent_node, nodeid, topic, data, direction) {
+            if (!this._require_editable()) {
                 return null;
             }
+            var the_parent_node = this.get_node(parent_node);
+            var dir = jm.direction.of(direction)
+            if (dir === undefined) {
+                dir = this.layout.calculate_next_child_direction(the_parent_node);
+            }
+            var node = this.mind.add_node(the_parent_node, nodeid, topic, data, dir);
+            if (!!node) {
+                this.view.add_node(node);
+                this.layout.layout();
+                this.view.show(false);
+                this.view.reset_node_custom_style(node);
+                this.expand_node(the_parent_node);
+                this.invoke_event_handle(jm.event_type.edit, { evt: 'add_node', data: [the_parent_node.id, nodeid, topic, data, dir], node: nodeid });
+            }
+            return node;
         },
 
         insert_node_before: function (node_before, nodeid, topic, data, direction) {
-            if (this.get_editable()) {
-                var the_node_before = this.get_node(node_before);
-                var dir = jm.direction.of(direction)
-                if (dir === undefined) {
-                    dir = this.layout.calculate_next_child_direction(the_node_before.parent);
-                }
-                var node = this.mind.insert_node_before(the_node_before, nodeid, topic, data, dir);
-                if (!!node) {
-                    this.view.add_node(node);
-                    this.layout.layout();
-                    this.view.show(false);
-                    this.invoke_event_handle(jm.event_type.edit, { evt: 'insert_node_before', data: [the_node_before.id, nodeid, topic, data, dir], node: nodeid });
-                }
-                return node;
-            } else {
-                logger.error('fail, this mind map is not editable');
+            if (!this._require_editable()) {
                 return null;
             }
+            var the_node_before = this.get_node(node_before);
+            var dir = jm.direction.of(direction)
+            if (dir === undefined) {
+                dir = this.layout.calculate_next_child_direction(the_node_before.parent);
+            }
+            var node = this.mind.insert_node_before(the_node_before, nodeid, topic, data, dir);
+            if (!!node) {
+                this.view.add_node(node);
+                this.layout.layout();
+                this.view.show(false);
+                this.invoke_event_handle(jm.event_type.edit, { evt: 'insert_node_before', data: [the_node_before.id, nodeid, topic, data, dir], node: nodeid });
+            }
+            return node;
         },
 
         insert_node_after: function (node_after, nodeid, topic, data, direction) {
-            if (this.get_editable()) {
-                var the_node_after = this.get_node(node_after);
-                var dir = jm.direction.of(direction)
-                if (dir === undefined) {
-                    dir = this.layout.calculate_next_child_direction(the_node_after.parent);
-                }
-                var node = this.mind.insert_node_after(the_node_after, nodeid, topic, data, dir);
-                if (!!node) {
-                    this.view.add_node(node);
-                    this.layout.layout();
-                    this.view.show(false);
-                    this.invoke_event_handle(jm.event_type.edit, { evt: 'insert_node_after', data: [the_node_after.id, nodeid, topic, data, dir], node: nodeid });
-                }
-                return node;
-            } else {
-                logger.error('fail, this mind map is not editable');
+            if (!this._require_editable()) {
                 return null;
             }
+            var the_node_after = this.get_node(node_after);
+            var dir = jm.direction.of(direction)
+            if (dir === undefined) {
+                dir = this.layout.calculate_next_child_direction(the_node_after.parent);
+            }
+            var node = this.mind.insert_node_after(the_node_after, nodeid, topic, data, dir);
+            if (!!node) {
+                this.view.add_node(node);
+                this.layout.layout();
+                this.view.show(false);
+                this.invoke_event_handle(jm.event_type.edit, { evt: 'insert_node_after', data: [the_node_after.id, nodeid, topic, data, dir], node: nodeid });
+            }
+            return node;
         },
 
         remove_node: function (node) {
-            if (!jm.util.is_node(node)) {
-                var the_node = this.get_node(node);
-                if (!the_node) {
-                    logger.error('the node[id=' + node + '] can not be found.');
-                    return false;
-                } else {
-                    return this.remove_node(the_node);
-                }
-            }
-            if (this.get_editable()) {
-                if (node.isroot) {
-                    logger.error('fail, can not remove root node');
-                    return false;
-                }
-                var nodeid = node.id;
-                var parentid = node.parent.id;
-                var parent_node = this.get_node(parentid);
-                this.view.save_location(parent_node);
-                this.view.remove_node(node);
-                this.mind.remove_node(node);
-                this.layout.layout();
-                this.view.show(false);
-                this.view.restore_location(parent_node);
-                this.invoke_event_handle(jm.event_type.edit, { evt: 'remove_node', data: [nodeid], node: parentid });
-                return true;
-            } else {
-                logger.error('fail, this mind map is not editable');
+            node = this._resolve_node(node);
+            if (!node) {
                 return false;
             }
+            if (!this._require_editable()) {
+                return false;
+            }
+            if (node.isroot) {
+                logger.error('fail, can not remove root node');
+                return false;
+            }
+            var nodeid = node.id;
+            var parentid = node.parent.id;
+            var parent_node = this.get_node(parentid);
+            this.view.save_location(parent_node);
+            this.view.remove_node(node);
+            this.mind.remove_node(node);
+            this.layout.layout();
+            this.view.show(false);
+            this.view.restore_location(parent_node);
+            this.invoke_event_handle(jm.event_type.edit, { evt: 'remove_node', data: [nodeid], node: parentid });
+            return true;
         },
 
         update_node: function (nodeid, topic) {
-            if (this.get_editable()) {
-                if (jm.util.text.is_empty(topic)) {
-                    logger.warn('fail, topic can not be empty');
+            if (!this._require_editable()) {
+                return;
+            }
+            if (jm.util.text.is_empty(topic)) {
+                logger.warn('fail, topic can not be empty');
+                return;
+            }
+            var node = this.get_node(nodeid);
+            if (!!node) {
+                if (node.topic === topic) {
+                    logger.info('nothing changed');
+                    this.view.update_node(node);
                     return;
                 }
-                var node = this.get_node(nodeid);
-                if (!!node) {
-                    if (node.topic === topic) {
-                        logger.info('nothing changed');
-                        this.view.update_node(node);
-                        return;
-                    }
-                    node.topic = topic;
-                    this.view.update_node(node);
-                    this.layout.layout();
-                    this.view.show(false);
-                    this.invoke_event_handle(jm.event_type.edit, { evt: 'update_node', data: [nodeid, topic], node: nodeid });
-                }
-            } else {
-                logger.error('fail, this mind map is not editable');
-                return;
+                node.topic = topic;
+                this.view.update_node(node);
+                this.layout.layout();
+                this.view.show(false);
+                this.invoke_event_handle(jm.event_type.edit, { evt: 'update_node', data: [nodeid, topic], node: nodeid });
             }
         },
 
         move_node: function (nodeid, beforeid, parentid, direction) {
-            if (this.get_editable()) {
-                var node = this.get_node(nodeid);
-                var updated_node = this.mind.move_node(node, beforeid, parentid, direction);
-                if (!!updated_node) {
-                    this.view.update_node(updated_node);
-                    this.layout.layout();
-                    this.view.show(false);
-                    this.invoke_event_handle(jm.event_type.edit, { evt: 'move_node', data: [nodeid, beforeid, parentid, direction], node: nodeid });
-                }
-            } else {
-                logger.error('fail, this mind map is not editable');
+            if (!this._require_editable()) {
                 return;
+            }
+            var node = this.get_node(nodeid);
+            var updated_node = this.mind.move_node(node, beforeid, parentid, direction);
+            if (!!updated_node) {
+                this.view.update_node(updated_node);
+                this.layout.layout();
+                this.view.show(false);
+                this.invoke_event_handle(jm.event_type.edit, { evt: 'move_node', data: [nodeid, beforeid, parentid, direction], node: nodeid });
             }
         },
 
         select_node: function (node) {
-            if (!jm.util.is_node(node)) {
-                var the_node = this.get_node(node);
-                if (!the_node) {
-                    logger.error('the node[id=' + node + '] can not be found.');
-                    return;
-                } else {
-                    return this.select_node(the_node);
-                }
-            }
+            node = this._resolve_node(node);
+            if (!node) { return; }
             if (!this.layout.is_visible(node)) {
                 return;
             }
@@ -1487,15 +1457,8 @@
         },
 
         find_node_before: function (node) {
-            if (!jm.util.is_node(node)) {
-                var the_node = this.get_node(node);
-                if (!the_node) {
-                    logger.error('the node[id=' + node + '] can not be found.');
-                    return;
-                } else {
-                    return this.find_node_before(the_node);
-                }
-            }
+            node = this._resolve_node(node);
+            if (!node) { return; }
             if (node.isroot) { return null; }
             var n = null;
             if (node.parent.isroot) {
@@ -1518,15 +1481,8 @@
         },
 
         find_node_after: function (node) {
-            if (!jm.util.is_node(node)) {
-                var the_node = this.get_node(node);
-                if (!the_node) {
-                    logger.error('the node[id=' + node + '] can not be found.');
-                    return;
-                } else {
-                    return this.find_node_after(the_node);
-                }
-            }
+            node = this._resolve_node(node);
+            if (!node) { return; }
             if (node.isroot) { return null; }
             var n = null;
             if (node.parent.isroot) {
@@ -1552,91 +1508,83 @@
         },
 
         set_node_color: function (nodeid, bgcolor, fgcolor) {
-            if (this.get_editable()) {
-                var node = this.mind.get_node(nodeid);
-                if (!!node) {
-                    if (!!bgcolor) {
-                        node.data['background-color'] = bgcolor;
-                    }
-                    if (!!fgcolor) {
-                        node.data['foreground-color'] = fgcolor;
-                    }
-                    this.view.reset_node_custom_style(node);
-                }
-            } else {
-                logger.error('fail, this mind map is not editable');
+            if (!this._require_editable()) {
                 return null;
+            }
+            var node = this.mind.get_node(nodeid);
+            if (!!node) {
+                if (!!bgcolor) {
+                    node.data['background-color'] = bgcolor;
+                }
+                if (!!fgcolor) {
+                    node.data['foreground-color'] = fgcolor;
+                }
+                this.view.reset_node_custom_style(node);
             }
         },
 
         set_node_font_style: function (nodeid, size, weight, style) {
-            if (this.get_editable()) {
-                var node = this.mind.get_node(nodeid);
-                if (!!node) {
-                    if (!!size) {
-                        node.data['font-size'] = size;
-                    }
-                    if (!!weight) {
-                        node.data['font-weight'] = weight;
-                    }
-                    if (!!style) {
-                        node.data['font-style'] = style;
-                    }
-                    this.view.reset_node_custom_style(node);
-                    this.view.update_node(node);
-                    this.layout.layout();
-                    this.view.show(false);
-                }
-            } else {
-                logger.error('fail, this mind map is not editable');
+            if (!this._require_editable()) {
                 return null;
+            }
+            var node = this.mind.get_node(nodeid);
+            if (!!node) {
+                if (!!size) {
+                    node.data['font-size'] = size;
+                }
+                if (!!weight) {
+                    node.data['font-weight'] = weight;
+                }
+                if (!!style) {
+                    node.data['font-style'] = style;
+                }
+                this.view.reset_node_custom_style(node);
+                this.view.update_node(node);
+                this.layout.layout();
+                this.view.show(false);
             }
         },
 
         set_node_background_image: function (nodeid, image, width, height, rotation) {
-            if (this.get_editable()) {
-                var node = this.mind.get_node(nodeid);
-                if (!!node) {
-                    if (!!image) {
-                        node.data['background-image'] = image;
-                    }
-                    if (!!width) {
-                        node.data['width'] = width;
-                    }
-                    if (!!height) {
-                        node.data['height'] = height;
-                    }
-                    if (!!rotation) {
-                        node.data['background-rotation'] = rotation;
-                    }
-                    this.view.reset_node_custom_style(node);
-                    this.view.update_node(node);
-                    this.layout.layout();
-                    this.view.show(false);
-                }
-            } else {
-                logger.error('fail, this mind map is not editable');
+            if (!this._require_editable()) {
                 return null;
+            }
+            var node = this.mind.get_node(nodeid);
+            if (!!node) {
+                if (!!image) {
+                    node.data['background-image'] = image;
+                }
+                if (!!width) {
+                    node.data['width'] = width;
+                }
+                if (!!height) {
+                    node.data['height'] = height;
+                }
+                if (!!rotation) {
+                    node.data['background-rotation'] = rotation;
+                }
+                this.view.reset_node_custom_style(node);
+                this.view.update_node(node);
+                this.layout.layout();
+                this.view.show(false);
             }
         },
 
         set_node_background_rotation: function (nodeid, rotation) {
-            if (this.get_editable()) {
-                var node = this.mind.get_node(nodeid);
-                if (!!node) {
-                    if (!node.data['background-image']) {
-                        logger.error('fail, only can change rotation angle of node with background image');
-                        return null;
-                    }
-                    node.data['background-rotation'] = rotation;
-                    this.view.reset_node_custom_style(node);
-                    this.view.update_node(node);
-                    this.layout.layout();
-                    this.view.show(false);
-                }
-            } else {
-                logger.error('fail, this mind map is not editable');
+            if (!this._require_editable()) {
                 return null;
+            }
+            var node = this.mind.get_node(nodeid);
+            if (!!node) {
+                if (!node.data['background-image']) {
+                    logger.error('fail, only can change rotation angle of node with background image');
+                    return null;
+                }
+                node.data['background-rotation'] = rotation;
+                this.view.reset_node_custom_style(node);
+                this.view.update_node(node);
+                this.layout.layout();
+                this.view.show(false);
             }
         },
 
@@ -2266,10 +2214,7 @@
         },
 
         clear: function () {
-            var len = this.lines.length;
-            while (len--) {
-                this.e_svg.removeChild(this.lines[len]);
-            }
+            this.e_svg.textContent = '';
             this.lines.length = 0;
         },
 
@@ -2371,31 +2316,29 @@
         },
 
         get_binded_nodeid: function (element) {
-            if (element == null) {
-                return null;
+            while (element != null) {
+                var tagName = element.tagName.toLowerCase();
+                if (tagName == 'jmnode' || tagName == 'jmexpander') {
+                    return element.getAttribute('nodeid');
+                } else if (tagName == 'jmnodes' || tagName == 'body' || tagName == 'html') {
+                    return null;
+                }
+                element = element.parentElement;
             }
-            var tagName = element.tagName.toLowerCase();
-            if (tagName == 'jmnode' || tagName == 'jmexpander') {
-                return element.getAttribute('nodeid');
-            } else if (tagName == 'jmnodes' || tagName == 'body' || tagName == 'html') {
-                return null;
-            } else {
-                return this.get_binded_nodeid(element.parentElement);
-            }
+            return null;
         },
 
         is_node: function (element) {
-            if (element == null) {
-                return false;
+            while (element != null) {
+                var tagName = element.tagName.toLowerCase();
+                if (tagName == 'jmnode') {
+                    return true;
+                } else if (tagName == 'jmnodes' || tagName == 'body' || tagName == 'html') {
+                    return false;
+                }
+                element = element.parentElement;
             }
-            var tagName = element.tagName.toLowerCase();
-            if (tagName == 'jmnode') {
-                return true;
-            } else if (tagName == 'jmnodes' || tagName == 'body' || tagName == 'html') {
-                return false;
-            } else {
-                return this.is_node(element.parentElement);
-            }
+            return false;
         },
 
         is_expander: function (element) {
@@ -2441,9 +2384,8 @@
             if (client_h < min_height) { client_h = min_height; }
 
             // Add extra buffer space to prevent content disappearing on first drag
-            var buffer = 2000; // Extra space for smooth dragging
-            this.size.w = client_w + buffer;
-            this.size.h = client_h + buffer;
+            this.size.w = client_w + VIEW_DRAG_INITIAL_BUFFER;
+            this.size.h = client_h + VIEW_DRAG_INITIAL_BUFFER;
         },
 
         init_nodes_size: function (node) {
@@ -2888,8 +2830,6 @@
                 jm.util.dom.add_event(this.container, 'mousemove', (eventMove) => {
                     if (this.dragging_enabled && dragging) {
                         // Dynamically expand container if nearing edges (for infinite canvas)
-                        const threshold = 200; // pixels from edge to trigger expansion (increased for smoother experience)
-                        const expansion = 2000; // pixels to expand by (increased to reduce frequency of expansion)
                         const dx = x - eventMove.clientX;
                         const dy = y - eventMove.clientY;
                         // Only expand when there is actually scrollable overflow in that direction.
@@ -2899,8 +2839,8 @@
 
                         // Expand right if scrolling near right edge
                         if (dx > 0 && canScrollX &&
-                            this.e_panel.scrollLeft + this.e_panel.clientWidth > this.e_panel.scrollWidth - threshold) {
-                            this.size.w += expansion;
+                            this.e_panel.scrollLeft + this.e_panel.clientWidth > this.e_panel.scrollWidth - VIEW_DRAG_EXPAND_THRESHOLD) {
+                            this.size.w += VIEW_DRAG_EXPAND_SIZE;
                             this.e_nodes.style.width = this.size.w + 'px';
                             this.graph.set_size(this.size.w, this.size.h);
                             this.show_nodes(); // Redraw nodes after canvas resize
@@ -2909,8 +2849,8 @@
 
                         // Expand bottom if scrolling near bottom edge
                         if (dy > 0 && canScrollY &&
-                            this.e_panel.scrollTop + this.e_panel.clientHeight > this.e_panel.scrollHeight - threshold) {
-                            this.size.h += expansion;
+                            this.e_panel.scrollTop + this.e_panel.clientHeight > this.e_panel.scrollHeight - VIEW_DRAG_EXPAND_THRESHOLD) {
+                            this.size.h += VIEW_DRAG_EXPAND_SIZE;
                             this.e_nodes.style.height = this.size.h + 'px';
                             this.graph.set_size(this.size.w, this.size.h);
                             this.show_nodes(); // Redraw nodes after canvas resize

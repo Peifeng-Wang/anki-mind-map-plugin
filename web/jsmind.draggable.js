@@ -66,6 +66,7 @@
             this.jm.view.e_nodes.appendChild(this.shadow);
             this.e_canvas.width = this.jm.view.size.w;
             this.e_canvas.height = this.jm.view.size.h;
+            this._set_canvas_line_style();
         },
 
         _create_canvas: function () {
@@ -74,6 +75,7 @@
             var ctx = c.getContext('2d');
             this.e_canvas = c;
             this.canvas_ctx = ctx;
+            this._set_canvas_line_style();
         },
 
         _create_shadow: function () {
@@ -115,9 +117,6 @@
 
         _magnet_shadow: function (node) {
             if (!!node) {
-                this.canvas_ctx.lineWidth = options.line_width;
-                this.canvas_ctx.strokeStyle = options.line_color;
-                this.canvas_ctx.lineCap = 'round';
                 this._clear_lines();
                 this._canvas_lineto(node.sp.x, node.sp.y, node.np.x, node.np.y);
                 this._highlight_target_node(node.node);
@@ -127,14 +126,19 @@
         },
 
         _highlight_target_node: function (node) {
-            this._clear_highlight();
             if (node && node._data && node._data.view && node._data.view.element) {
                 var el = node._data.view.element;
+                if (el === this.highlighted_element) {
+                    return;
+                }
+                this._clear_highlight();
                 el.style.backgroundColor = options.highlight_color;
                 el.style.border = options.highlight_border;
                 el.style.transform = 'scale(1.05)';
                 el.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
                 this.highlighted_element = el;
+            } else {
+                this._clear_highlight();
             }
         },
 
@@ -157,6 +161,52 @@
             this.canvas_ctx.moveTo(x1, y1);
             this.canvas_ctx.lineTo(x2, y2);
             this.canvas_ctx.stroke();
+        },
+
+        _set_canvas_line_style: function () {
+            this.canvas_ctx.lineWidth = options.line_width;
+            this.canvas_ctx.strokeStyle = options.line_color;
+            this.canvas_ctx.lineCap = 'round';
+        },
+
+        _get_event_client_point: function (e) {
+            return {
+                x: e.clientX || e.touches[0].clientX,
+                y: e.clientY || e.touches[0].clientY
+            };
+        },
+
+        _clear_lookup_timer: function (clear_lines, reset_handle) {
+            if (this.hlookup_delay != 0) {
+                $w.clearTimeout(this.hlookup_delay);
+                if (reset_handle) {
+                    this.hlookup_delay = 0;
+                }
+                if (clear_lines) {
+                    this._clear_lines();
+                }
+            }
+            if (this.hlookup_timer != 0) {
+                $w.clearInterval(this.hlookup_timer);
+                if (reset_handle) {
+                    this.hlookup_timer = 0;
+                }
+                if (clear_lines) {
+                    this._clear_lines();
+                }
+            }
+        },
+
+        _reset_drag_state: function () {
+            this.view_panel_rect = null
+            this.moved = false;
+            this.capture = false;
+        },
+
+        _reset_node_state: function () {
+            this.active_node = null;
+            this.target_node = null;
+            this.target_direct = null;
         },
 
         _lookup_close_node: function () {
@@ -324,16 +374,12 @@
                     this.reset_shadow(el);
                     this.view_panel_rect = this.view_panel.getBoundingClientRect()
                     this.active_node = node;
-                    this.offset_x = (e.clientX || e.touches[0].clientX) / jview.actualZoom - el.offsetLeft;
-                    this.offset_y = (e.clientY || e.touches[0].clientY) / jview.actualZoom - el.offsetTop;
+                    var point = this._get_event_client_point(e);
+                    this.offset_x = point.x / jview.actualZoom - el.offsetLeft;
+                    this.offset_y = point.y / jview.actualZoom - el.offsetTop;
                     this.client_hw = Math.floor(el.clientWidth / 2);
                     this.client_hh = Math.floor(el.clientHeight / 2);
-                    if (this.hlookup_delay != 0) {
-                        $w.clearTimeout(this.hlookup_delay);
-                    }
-                    if (this.hlookup_timer != 0) {
-                        $w.clearInterval(this.hlookup_timer);
-                    }
+                    this._clear_lookup_timer(false, false);
                     var jd = this;
                     this.hlookup_delay = $w.setTimeout(function () {
                         jd.hlookup_delay = 0;
@@ -354,8 +400,9 @@
                 this.moved = true;
                 clear_selection();
                 var jview = this.jm.view;
-                var px = (e.clientX || e.touches[0].clientX) / jview.actualZoom - this.offset_x;
-                var py = (e.clientY || e.touches[0].clientY) / jview.actualZoom - this.offset_y;
+                var point = this._get_event_client_point(e);
+                var px = point.x / jview.actualZoom - this.offset_x;
+                var py = point.y / jview.actualZoom - this.offset_y;
                 // scrolling container axisY if drag nodes exceeding container
                 if (
                     e.clientY - this.view_panel_rect.top < options.scrolling_trigger_width &&
@@ -384,7 +431,6 @@
                 }
                 this.shadow.style.left = px + 'px';
                 this.shadow.style.top = py + 'px';
-                clear_selection();
             }
         },
 
@@ -392,16 +438,7 @@
             if (!this.jm.get_editable()) { return; }
             if (this.jm.view.get_draggable_canvas()) { this.jm.view.enable_draggable_canvas() }
             if (this.capture) {
-                if (this.hlookup_delay != 0) {
-                    $w.clearTimeout(this.hlookup_delay);
-                    this.hlookup_delay = 0;
-                    this._clear_lines();
-                }
-                if (this.hlookup_timer != 0) {
-                    $w.clearInterval(this.hlookup_timer);
-                    this.hlookup_timer = 0;
-                    this._clear_lines();
-                }
+                this._clear_lookup_timer(true, true);
                 this._clear_highlight();
                 if (this.moved) {
                     var src_node = this.active_node;
@@ -411,9 +448,7 @@
                 }
                 this.hide_shadow();
             }
-            this.view_panel_rect = null
-            this.moved = false;
-            this.capture = false;
+            this._reset_drag_state();
         },
 
         move_node: function (src_node, target_node, target_direct) {
@@ -440,9 +475,7 @@
                 if (!!node_before) { beforeid = node_before.id; }
                 this.jm.move_node(src_node.id, beforeid, target_node.id, target_direct);
             }
-            this.active_node = null;
-            this.target_node = null;
-            this.target_direct = null;
+            this._reset_node_state();
         },
 
         jm_event_handle: function (type, data) {
