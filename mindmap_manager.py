@@ -57,19 +57,25 @@ class MindMapManager(QDialog):
         return button
 
     def refresh_list(self):
-        self.list_widget.clear()
-        self.notes = []
+        if hasattr(self.list_widget, "setUpdatesEnabled"):
+            self.list_widget.setUpdatesEnabled(False)
+        try:
+            self.list_widget.clear()
+            self.notes = []
 
-        ids = self.mw.col.find_notes(NOTE_QUERY)
-        for nid in ids:
-            note = self.mw.col.get_note(nid)
-            title = self._get_note_title(note)
-            allow_new = self._get_allow_new_cards(note)
-            status_icon = ACTIVE_ICON if allow_new == ALLOW_NEW_CARDS_ENABLED else INACTIVE_ICON
-            display_text = f"{status_icon} {title}"
+            ids = self.mw.col.find_notes(NOTE_QUERY)
+            for nid in ids:
+                note = self.mw.col.get_note(nid)
+                title = self._get_note_title(note)
+                allow_new = self._get_allow_new_cards(note)
+                status_icon = ACTIVE_ICON if allow_new == ALLOW_NEW_CARDS_ENABLED else INACTIVE_ICON
+                display_text = f"{status_icon} {title}"
 
-            self.notes.append((title, nid))
-            self.list_widget.addItem(display_text)
+                self.notes.append((title, nid))
+                self.list_widget.addItem(display_text)
+        finally:
+            if hasattr(self.list_widget, "setUpdatesEnabled"):
+                self.list_widget.setUpdatesEnabled(True)
 
     def get_selected_nid(self):
         row = self.list_widget.currentRow()
@@ -209,7 +215,7 @@ class MindMapManager(QDialog):
                 return True
 
         if 'children' in node:
-            for child_index, child in enumerate(list(node['children'])):
+            for child_index, child in enumerate(node['children']):
                 if self._remove_node_by_id(child, node_id, node['children'], child_index):
                     return True
 

@@ -361,7 +361,8 @@ class PythonRefactorTests(unittest.TestCase):
 
         review_indicator.show_mindmap_indicator()
         self.assertEqual(len(card_linker.removed), 1)
-        self.assertIn('if ("" === "")', calls[-1])
+        self.assertIn("existing.remove()", calls[-1])
+        self.assertNotIn("document.createElement('div')", calls[-1])
 
     def test_mindmap_manager_helpers_preserve_selection_and_node_removal(self):
         mindmap_editor = types.ModuleType(f"{PACKAGE_NAME}.mindmap_editor")
@@ -389,7 +390,10 @@ class PythonRefactorTests(unittest.TestCase):
         self.assertEqual(dialog._extract_mindmaps({"title": "Single"}), [{"title": "Single"}])
         self.assertEqual(dialog._extract_mindmaps([]), [])
 
-        dialog._import_one_mindmap({"title": "Imported", "uuid": "u", "data": {"data": {}}, "allow_new_cards": "0"})
+        dialog._import_one_mindmap(
+            {"title": "Imported", "uuid": "u", "data": {"data": {}}, "allow_new_cards": "0"},
+            model,
+        )
         added = self.mw.col.added_notes[-1]
         self.assertEqual(added["Title"], "Imported (导入)")
         self.assertEqual(added["AllowNewCards"], "0")

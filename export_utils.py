@@ -4,6 +4,7 @@ Avoid duplicating export logic across multiple files
 """
 import json
 import os
+import filecmp
 import shutil
 import traceback
 from datetime import datetime
@@ -47,6 +48,26 @@ def _write_json_file(filename, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _viewer_copy_is_current(viewer_source, viewer_dest):
+    try:
+        source_stat = os.stat(viewer_source)
+        dest_stat = os.stat(viewer_dest)
+    except OSError:
+        return False
+
+    if source_stat.st_size != dest_stat.st_size:
+        return False
+    if source_stat.st_mtime_ns != dest_stat.st_mtime_ns:
+        return False
+    if source_stat.st_mode != dest_stat.st_mode:
+        return False
+
+    try:
+        return filecmp.cmp(viewer_source, viewer_dest, shallow=False)
+    except OSError:
+        return False
+
+
 def _copy_standalone_viewer(filename):
     try:
         addon_dir = os.path.dirname(__file__)
@@ -55,6 +76,8 @@ def _copy_standalone_viewer(filename):
         viewer_dest = os.path.join(export_dir, "MindMap_Viewer.html")
 
         if os.path.exists(viewer_source):
+            if _viewer_copy_is_current(viewer_source, viewer_dest):
+                return viewer_dest
             shutil.copy2(viewer_source, viewer_dest)
             return viewer_dest
     except Exception as e:

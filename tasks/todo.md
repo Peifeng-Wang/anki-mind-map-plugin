@@ -28,3 +28,12 @@
   - [x] Refactor `usage_guide.py` with dialog API, language config, and guide rendering preserved. Replaced broken Chinese HTML with structured bilingual guide rendering and shared styles.
   - [x] Add focused tests for all newly exposed/testable logic and regression-sensitive behavior. Added `tests/python_refactor_tests.py`.
   - [x] Run Python tests, syntax checks, existing JS tests, and `git diff --check` until all pass. `py_compile`, Python unittest, `npm test`, and diff check pass.
+- [x] Apply low-risk performance optimizations to six Python support files based on subagent reports.
+  - [x] Optimize `mindmap_backup.py` without changing backup/import behavior. Reused the model during batch import instead of looking it up for every item.
+  - [x] Optimize `export_utils.py` without changing export schema, return tuples, or viewer-copy semantics. Skips viewer copy only when destination already matches source metadata/content.
+  - [x] Optimize `mindmap_manager.py` without changing manager UI callbacks or note side effects. Suspends list updates during full refresh and avoids child-list copying during node removal.
+  - [x] Optimize `note_manager.py` without changing model schema or note creation behavior. Added direct field-existence check and an internal model-reuse creation helper.
+  - [x] Optimize `review_indicator.py` without changing hooks, pycmd contract, or indicator behavior. Uses short clear-indicator JS and iterative node lookup.
+  - [x] Optimize `usage_guide.py` without changing dialog API, language config, or guide rendering behavior. Avoids initial config write and repeated same-language re-rendering.
+  - [x] Update tests if needed for optimized code paths. Adjusted Python regression assertions for clear JS and batch import model reuse.
+  - [x] Run Python syntax checks, Python tests, existing JS tests, and `git diff --check` until all pass.

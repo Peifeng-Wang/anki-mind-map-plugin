@@ -297,23 +297,25 @@ class MindMapBackupDialog(QDialog):
 
     def _import_mindmap_batch(self, mindmaps):
         imported_count = 0
+        model = None
         for mindmap_data in mindmaps:
             if not isinstance(mindmap_data, dict):
                 continue
             try:
-                self._import_one_mindmap(mindmap_data)
+                if model is None:
+                    from .note_manager import get_or_create_mindmap_model
+
+                    model = get_or_create_mindmap_model()
+                self._import_one_mindmap(mindmap_data, model)
                 imported_count += 1
             except Exception as e:
                 print(f"Error importing mind map {mindmap_data.get('title', 'unknown')}: {e}")
         return imported_count
 
-    def _import_one_mindmap(self, mindmap_data):
-        from .note_manager import get_or_create_mindmap_model
-
+    def _import_one_mindmap(self, mindmap_data, model):
         title = mindmap_data.get("title", "Imported Mind Map")
         uid = mindmap_data.get("uuid", str(uuid.uuid4()))
 
-        model = get_or_create_mindmap_model()
         note = self.mw.col.new_note(model)
         note["Title"] = title + IMPORT_SUFFIX
         note["UUID"] = uid

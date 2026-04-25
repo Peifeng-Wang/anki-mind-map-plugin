@@ -38,6 +38,7 @@ class UsageDialog(QDialog):
         self.setWindowTitle("Mind Map Plugin - Usage Guide")
         self.resize(1000, 750)
         self.current_lang = self._load_language()
+        self._content_loaded = False
 
         layout = QVBoxLayout(self)
         layout.addLayout(self._build_language_buttons())
@@ -47,7 +48,7 @@ class UsageDialog(QDialog):
         self.web.setSearchPaths([])
         layout.addWidget(self.web)
 
-        self.switch_language(self.current_lang)
+        self.switch_language(self.current_lang, save_preference=False)
 
     def _build_language_buttons(self):
         btn_layout = QHBoxLayout()
@@ -72,12 +73,19 @@ class UsageDialog(QDialog):
     def _normalize_language(self, lang):
         return lang if lang in ("en", "cn") else DEFAULT_LANGUAGE
 
-    def switch_language(self, lang):
-        self.current_lang = self._normalize_language(lang)
+    def switch_language(self, lang, save_preference=True):
+        next_lang = self._normalize_language(lang)
+        if self._content_loaded and next_lang == self.current_lang:
+            self._update_language_buttons()
+            return
+
+        self.current_lang = next_lang
         self._update_language_buttons()
-        self._save_language(self.current_lang)
+        if save_preference:
+            self._save_language(self.current_lang)
         content = self.get_english_content() if self.current_lang == "en" else self.get_chinese_content()
         self.web.setHtml(content)
+        self._content_loaded = True
 
     def _update_language_buttons(self):
         self.btn_en.setStyleSheet(ACTIVE_BUTTON_STYLE if self.current_lang == "en" else "")

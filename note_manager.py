@@ -44,14 +44,14 @@ def _get_or_create_mindmap_model(col) -> NotetypeDict:
 
 def _ensure_mindmap_model_schema(col, model: NotetypeDict) -> None:
     """Apply compatible schema migrations to an existing mind map note type."""
-    if FIELD_ALLOW_NEW_CARDS not in _model_field_names(model):
+    if not _model_has_field(model, FIELD_ALLOW_NEW_CARDS):
         col.models.add_field(model, col.models.new_field(FIELD_ALLOW_NEW_CARDS))
         col.models.save(model)
         print(ALLOW_NEW_CARDS_MIGRATION_MESSAGE)
 
 
-def _model_field_names(model: NotetypeDict) -> set[str]:
-    return {field["name"] for field in model["flds"]}
+def _model_has_field(model: NotetypeDict, field_name: str) -> bool:
+    return any(field["name"] == field_name for field in model["flds"])
 
 
 def _create_mindmap_model(col) -> NotetypeDict:
@@ -78,6 +78,12 @@ def create_new_mindmap_note(title: str, uuid_str: str) -> int:
 
 def _create_new_mindmap_note(col, title: str, uuid_str: str) -> int:
     model = _get_or_create_mindmap_model(col)
+    return _create_new_mindmap_note_with_model(col, model, title, uuid_str)
+
+
+def _create_new_mindmap_note_with_model(
+    col, model: NotetypeDict, title: str, uuid_str: str
+) -> int:
     note = col.new_note(model)
     _populate_mindmap_note_fields(note, title, uuid_str)
 

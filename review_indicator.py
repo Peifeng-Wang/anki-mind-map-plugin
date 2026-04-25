@@ -12,6 +12,14 @@ MINDMAP_COMMAND_PREFIX = "open_mindmap:"
 INDICATOR_ID = "mindmap-indicator"
 MINDMAP_ID_RE = re.compile(r'data-mid="(\d+)"')
 NODE_ID_RE = re.compile(r'data-nid="([^"]+)"')
+CLEAR_INDICATOR_JS = f"""
+(function() {{
+    var existing = document.getElementById('{INDICATOR_ID}');
+    if (existing) {{
+        existing.remove();
+    }}
+}})();
+"""
 
 
 def _find_mindmap_link(note):
@@ -34,15 +42,20 @@ def _find_mindmap_link(note):
 
 def _node_exists(node, node_id):
     """Return whether node_id exists in a mind map node tree."""
-    if not isinstance(node, dict):
-        return False
+    nodes_to_check = [node]
+    while nodes_to_check:
+        current_node = nodes_to_check.pop()
+        if not isinstance(current_node, dict):
+            continue
 
-    if node.get("id") == node_id:
-        return True
-
-    for child in node.get("children", []):
-        if _node_exists(child, node_id):
+        if current_node.get("id") == node_id:
             return True
+
+        children = current_node.get("children", [])
+        if isinstance(children, list):
+            nodes_to_check.extend(reversed(children))
+        else:
+            nodes_to_check.extend(reversed(list(children)))
 
     return False
 
@@ -144,6 +157,10 @@ def _build_indicator_js(mindmap_title, pycmd_param):
 def _render_indicator(mindmap_title="", pycmd_param=""):
     """Render or remove the review indicator in the current reviewer webview."""
     if mw.reviewer and mw.reviewer.web:
+        if not mindmap_title:
+            mw.reviewer.web.eval(CLEAR_INDICATOR_JS)
+            return
+
         mw.reviewer.web.eval(_build_indicator_js(mindmap_title, pycmd_param))
 
 
