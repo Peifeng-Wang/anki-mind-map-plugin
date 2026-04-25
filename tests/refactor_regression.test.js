@@ -5,6 +5,18 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
+const draggableModuleFiles = [
+  'web/jsmind.draggable.options.js',
+  'web/jsmind.draggable.canvas.js',
+  'web/jsmind.draggable.highlight.js',
+  'web/jsmind.draggable.shadow.js',
+  'web/jsmind.draggable.timer.js',
+  'web/jsmind.draggable.lookup.js',
+  'web/jsmind.draggable.autoscroll.js',
+  'web/jsmind.draggable.move.js',
+  'web/jsmind.draggable.events.js',
+  'web/jsmind.draggable.core.js'
+];
 
 function file(relPath) {
   return path.join(root, relPath);
@@ -12,6 +24,35 @@ function file(relPath) {
 
 function read(relPath) {
   return fs.readFileSync(file(relPath), 'utf8');
+}
+
+function readJsmindCssCascade() {
+  const entry = read('web/jsmind.css');
+  const imports = [...entry.matchAll(/@import\s+url\("\.\/styles\/(jsmind-[^"]+\.css)"\);/g)]
+    .map((match) => match[1]);
+  return imports.map((name) => read(`web/styles/${name}`)).join('\n');
+}
+
+function readStyleCssCascade() {
+  const entry = read('web/style.css');
+  const imports = [...entry.matchAll(/@import\s+url\("styles\/(style-[^"]+\.css)"\);/g)]
+    .map((match) => match[1]);
+  return imports.map((name) => read(`web/styles/${name}`)).join('\n');
+}
+
+function editorModulePaths() {
+  return fs.readdirSync(file('web/main'))
+    .filter((name) => name.endsWith('.js'))
+    .sort()
+    .map((name) => `web/main/${name}`);
+}
+
+function editorMainSource() {
+  return editorModulePaths().map(read).join('\n');
+}
+
+function draggableSource() {
+  return draggableModuleFiles.map(read).join('\n');
 }
 
 function test(name, fn) {
@@ -28,13 +69,15 @@ function countMatches(text, pattern) {
   return (text.match(pattern) || []).length;
 }
 
-function inlineViewerScript() {
-  const html = read('web/standalone_viewer.html');
-  const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
-    .map((match) => match[1].trim())
-    .filter(Boolean);
-  assert.strictEqual(scripts.length, 1, 'expected one inline viewer script');
-  return scripts[0];
+function decodeDataAsset(html, type) {
+  const attr = `data-standalone-viewer-fallback="${type}"`;
+  const tag = html.match(new RegExp(`<(?:script|link)[^>]*${attr}[^>]*>`));
+  assert.ok(tag, `${type} fallback asset missing`);
+  const urlAttr = type === 'js' ? 'src' : 'href';
+  const mime = type === 'js' ? 'javascript' : 'css';
+  const url = tag[0].match(new RegExp(`${urlAttr}="data:text\\/${mime};base64,([^"]+)"`));
+  assert.ok(url, `${type} fallback data URL missing`);
+  return Buffer.from(url[1], 'base64').toString('utf8');
 }
 
 function makeElement(id) {
@@ -77,19 +120,55 @@ function makeElement(id) {
 }
 
 test('JavaScript files parse successfully', () => {
-  ['web/jsmind.js', 'web/jsmind.draggable.js', 'web/main.js'].forEach((relPath) => {
+  [
+    'web/jsmind.js',
+    'web/jsmind.draggable.js',
+    'web/main.js',
+    'web/standalone_viewer/viewer.js',
+    ...draggableModuleFiles,
+    ...editorModulePaths()
+  ].forEach((relPath) => {
     execFileSync(process.execPath, ['--check', file(relPath)], { stdio: 'pipe' });
   });
 });
 
-test('standalone viewer inline script parses and binds controls', () => {
+test('main.js remains a compatibility loader for split editor modules', () => {
+  const loader = read('web/main.js');
+  const modulePaths = editorModulePaths();
+
+  assert.ok(loader.includes('document.write'), 'main.js should synchronously load split modules');
+  assert.strictEqual(modulePaths.length, 19, 'expected focused editor modules');
+  modulePaths.forEach((relPath) => {
+    assert.ok(loader.includes(relPath.replace('web/', '')), `${relPath} missing from loader`);
+  });
+});
+
+test('jsmind.draggable.js remains a compatibility loader for split draggable modules', () => {
+  const loader = read('web/jsmind.draggable.js');
+
+  assert.ok(loader.includes('document.write'), 'jsmind.draggable.js should synchronously load split modules');
+  draggableModuleFiles.forEach((relPath) => {
+    assert.ok(loader.includes(relPath.replace('web/', '')), `${relPath} missing from loader`);
+  });
+});
+
+test('standalone viewer assets parse and bind controls', () => {
   const html = read('web/standalone_viewer.html');
   assert.strictEqual(countMatches(html, /\sonclick=/g), 0, 'inline onclick handlers should stay removed');
-  assert.ok(html.includes('const elements = {};'), 'fixed DOM reference cache should exist');
-  assert.ok(html.includes('function cacheElements()'), 'cacheElements helper missing');
-  assert.ok(html.includes('document.createDocumentFragment()'), 'mindmap selector should batch option appends');
+  assert.strictEqual(countMatches(html, /<style(?:\s[^>]*)?>/g), 0, 'viewer CSS should not stay inline');
+  assert.strictEqual(countMatches(html, /<script>([\s\S]*?)<\/script>/g), 0, 'viewer JS should not stay inline');
+  assert.ok(html.includes('href="./standalone_viewer/viewer.css"'), 'external viewer CSS entry missing');
+  assert.ok(html.includes('src="./standalone_viewer/viewer.js"'), 'external viewer JS entry missing');
+  assert.strictEqual(decodeDataAsset(html, 'css'), read('web/standalone_viewer/viewer.css'),
+    'export fallback CSS must match the split viewer CSS');
+  assert.strictEqual(decodeDataAsset(html, 'js'), read('web/standalone_viewer/viewer.js'),
+    'export fallback JS must match the split viewer JS');
 
-  const script = inlineViewerScript();
+  const script = read('web/standalone_viewer/viewer.js');
+  assert.ok(script.includes('const elements = {};'), 'fixed DOM reference cache should exist');
+  assert.ok(script.includes('function cacheElements()'), 'cacheElements helper missing');
+  assert.ok(script.includes('document.createDocumentFragment()'), 'mindmap selector should batch option appends');
+  assert.ok(script.includes('global.AnkiMindMapViewer'), 'viewer fallback guard missing');
   new Function(script);
 
   const elements = Object.create(null);
@@ -136,6 +215,7 @@ test('standalone viewer inline script parses and binds controls', () => {
   };
 
   Function(...Object.keys(context), script)(...Object.values(context));
+  assert.strictEqual(typeof context.window.AnkiMindMapViewer.switchLanguage, 'function');
 
   ['btnEn', 'btnCn', 'btnCenter', 'btnZoomIn', 'btnZoomOut'].forEach((id) => {
     assert.strictEqual(typeof elements[id].listeners.click, 'function', `${id} click handler missing`);
@@ -154,7 +234,7 @@ test('standalone viewer inline script parses and binds controls', () => {
 });
 
 test('draggable helper methods preserve expected state transitions', () => {
-  const script = read('web/jsmind.draggable.js');
+  const script = draggableSource();
   const clearedTimeouts = [];
   const clearedIntervals = [];
   const windowMock = {
@@ -304,16 +384,41 @@ test('jsMind internal helpers keep node resolution and editable semantics', () =
 });
 
 test('jsMind performance helpers keep equivalent lookup and clear behavior', () => {
-  const jsMindSource = read('web/jsmind.js');
+  const jsMindSource = read('web/jsmind.view-provider.js');
   assert.ok(jsMindSource.includes('this.e_svg.textContent = \'\';'), 'SVG clear should use batch textContent clearing');
-  assert.ok(jsMindSource.includes('get_binded_nodeid: function (element) {\n            while (element != null)'),
+  assert.ok(/get_binded_nodeid:\s*function \(element\) \{\s*while \(element != null\)/.test(jsMindSource),
     'get_binded_nodeid should use iterative parent lookup');
-  assert.ok(jsMindSource.includes('is_node: function (element) {\n            while (element != null)'),
+  assert.ok(/is_node:\s*function \(element\) \{\s*while \(element != null\)/.test(jsMindSource),
     'is_node should use iterative parent lookup');
 });
 
+test('jsMind split modules preserve compatibility entry and public API', () => {
+  const entry = read('web/jsmind.js');
+  [
+    'core',
+    'model',
+    'format',
+    'util',
+    'data-provider',
+    'layout-provider',
+    'view-provider',
+    'shortcut-plugin'
+  ].forEach((name) => {
+    assert.ok(fs.existsSync(file(`web/jsmind.${name}.js`)), `missing split module ${name}`);
+    assert.ok(entry.includes(`'${name}'`), `entry should load ${name}`);
+    execFileSync(process.execPath, ['--check', file(`web/jsmind.${name}.js`)], { stdio: 'pipe' });
+  });
+
+  const jsMind = require(file('web/jsmind.js'));
+  assert.strictEqual(typeof jsMind, 'function');
+  assert.strictEqual(typeof jsMind.format.node_tree.get_mind, 'function');
+  assert.strictEqual(typeof jsMind.util.json.merge, 'function');
+  assert.strictEqual(typeof jsMind.register_plugin, 'function');
+  assert.strictEqual(jsMind.direction.right, 1);
+});
+
 test('main.js save refactor keeps expected structure', () => {
-  const main = read('web/main.js');
+  const main = editorMainSource();
   assert.strictEqual(countMatches(main, /function focusNode\s*\(/g), 1, 'focusNode should only be defined once');
   ['collectFloatingNodesData', 'collectChangedNodesData', 'buildSavePayload'].forEach((name) => {
     assert.ok(main.includes(`function ${name}(`), `${name} helper missing`);
@@ -334,7 +439,21 @@ test('main.js save refactor keeps expected structure', () => {
 });
 
 test('CSS refactors keep non-empty rules and selected override ordering', () => {
-  const jsmindCss = read('web/jsmind.css');
+  const jsmindEntry = read('web/jsmind.css');
+  const jsmindImports = [...jsmindEntry.matchAll(/@import\s+url\("\.\/styles\/(jsmind-[^"]+\.css)"\);/g)]
+    .map((match) => match[1]);
+  assert.deepStrictEqual(jsmindImports, [
+    'jsmind-base.css',
+    'jsmind-overflow.css',
+    'jsmind-default.css',
+    'jsmind-responsive.css',
+    'jsmind-modern-premium.css',
+    'jsmind-classic-themes.css'
+  ], 'jsmind.css import order should preserve the original cascade');
+  assert.strictEqual(countMatches(jsmindEntry, /(?:^|\n)\s*(?!@import|\/|\*|\s*$)[^{@]+\{/g), 0,
+    'jsmind.css should remain a compatibility import entry');
+
+  const jsmindCss = readJsmindCssCascade();
   assert.strictEqual(countMatches(jsmindCss, /\{\s*\}/g), 0, 'empty CSS rules should be removed');
   const selectedIndex = jsmindCss.indexOf('jmnodes.theme-warning jmnode.selected,');
   const lastHoverIndex = jsmindCss.indexOf('jmnodes.theme-asbestos jmnode:hover');
@@ -345,7 +464,20 @@ test('CSS refactors keep non-empty rules and selected override ordering', () => 
   assert.ok(!jsmindCss.includes('moz-user-select: -moz-none;'), 'invalid moz-user-select declaration should stay removed');
   assert.strictEqual(countMatches(jsmindCss, /transition:\s*all/g), 0, 'jsmind.css should not use transition: all');
 
-  const styleCss = read('web/style.css');
+  const styleEntry = read('web/style.css');
+  const styleImports = [...styleEntry.matchAll(/@import\s+url\("styles\/(style-[^"]+\.css)"\);/g)]
+    .map((match) => match[1]);
+  assert.deepStrictEqual(styleImports, [
+    'style-base.css',
+    'style-interactions.css',
+    'style-link-indicators.css',
+    'style-structure.css',
+    'style-node-content.css'
+  ], 'style.css import order should preserve the original cascade');
+  assert.strictEqual(countMatches(styleEntry, /(?:^|\n)\s*(?!@import|\/|\*|\s*$)[^{@]+\{/g), 0,
+    'style.css should remain a compatibility import entry');
+
+  const styleCss = readStyleCssCascade();
   assert.ok(styleCss.includes('jmnode[data-has-card="true"]::after,\n' +
     'jmnode[data-is-map-link="true"]::before,\n' +
     'jmnode[data-has-linked-maps="true"]::before'), 'badge common selector group missing');

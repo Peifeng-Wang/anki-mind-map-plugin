@@ -11,3 +11,11 @@
 - [x] Apply visual-equivalent performance optimizations to the six `web` files. Limited changes to explicit transitions, cached DOM references, duplicate work guards, iterative lookup, SVG clear batching, and history string caching.
 - [x] Extend regression tests for the performance optimizations. Added checks for no `transition: all`, DOM caching/fragment use, highlight no-op behavior, SVG clear batching, iterative lookup, update-node guard, and history cache alignment.
 - [x] Re-run verification until all tests pass. `npm test`, `node --check` for JS files, and `git diff --check` pass.
+- [x] Phase 1 split `web` files by single responsibility while preserving existing entry filenames and public APIs.
+  - [x] Split `web/style.css` into focused CSS files with `style.css` kept as the compatibility entry.
+  - [x] Split `web/jsmind.css` into focused CSS files with `jsmind.css` kept as the compatibility entry.
+  - [x] Split `web/standalone_viewer.html` inline CSS/JS into standalone viewer assets while keeping export compatibility.
+  - [x] Split `web/jsmind.draggable.js` into focused draggable modules with the original plugin API preserved.
+  - [x] Split `web/jsmind.js` into focused jsMind runtime modules with `require("web/jsmind.js")` and browser global behavior preserved.
+  - [x] Split `web/main.js` into focused editor modules with Python/Qt `window` APIs and `pycmd` contracts preserved.
+  - [x] Run `node --check`, `npm test`, `python -m py_compile mindmap_editor.py export_utils.py`, and `git diff --check`.

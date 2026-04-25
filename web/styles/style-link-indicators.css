@@ -1,0 +1,79 @@
+/* Enhanced card link indicator with gradient */
+jmnode[data-has-card="true"]::after,
+jmnode[data-is-map-link="true"]::before,
+jmnode[data-has-linked-maps="true"]::before {
+    position: absolute;
+    top: -10px;
+    font-size: 12px;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    animation: link-bounce 3s ease-in-out infinite;
+}
+
+jmnode[data-has-card="true"]::after {
+    content: "🔗";
+    right: -10px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes link-bounce {
+
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+    }
+
+    50% {
+        transform: translateY(-2px) scale(1.05);
+    }
+}
+
+/* Map link indicator for linked child nodes (incoming link from other map) */
+jmnode[data-is-map-link="true"]::before {
+    content: "";
+    left: -10px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Map link indicator for root nodes with outgoing links */
+jmnode[data-has-linked-maps="true"]::before {
+    content: "";
+    left: -10px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+    box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Map-linked nodes should look like root nodes */
+jmnode[data-is-map-link="true"],
+jmnodes.theme-modern-premium jmnode[data-is-map-link="true"] {
+    font-weight: 700 !important;
+    padding: 18px 32px !important;
+}
+
+jmnode[data-is-map-link="true"] {
+    font-size: 24px !important;
+}
+
+/* For modern-premium theme */
+jmnodes.theme-modern-premium jmnode[data-is-map-link="true"] {
+    font-size: 26px !important;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%) !important;
+    color: #ffffff !important;
+    border: 3px solid rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 16px 48px rgba(99, 102, 241, 0.4), 0 8px 24px rgba(139, 92, 246, 0.3) !important;
+    letter-spacing: 0.5px !important;
+}
+
+jmnodes.theme-modern-premium jmnode[data-is-map-link="true"]:hover {
+    transform: translateY(-3px) scale(1.03) !important;
+    box-shadow: 0 20px 56px rgba(99, 102, 241, 0.5), 0 12px 28px rgba(139, 92, 246, 0.4) !important;
+}

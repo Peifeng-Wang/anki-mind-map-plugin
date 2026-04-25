@@ -4,203 +4,27 @@
 <head>
     <meta charset="utf-8">
     <title>Anki MindMap Viewer</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #7644ba2 100%);
-            min-height: 100vh;
-        }
-
-        .header {
-            background: white;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header-content h1 {
-            color: #333;
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-
-        .header-content p {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .lang-toggle {
-            display: flex;
-            gap: 10px;
-        }
-
-        .lang-toggle button {
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-
-        .lang-toggle button.active {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .lang-toggle button:not(.active) {
-            background: #f0f0f0;
-            color: #666;
-        }
-
-        .controls {
-            background: white;
-            padding: 15px 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .file-input-wrapper {
-            position: relative;
-        }
-
-        .file-input-wrapper input[type="file"] {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .file-input-label {
-            display: inline-block;
-            padding: 10px 20px;
-            background: #667eea;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.3s;
-        }
-
-        .file-input-label:hover {
-            background: #5568d3;
-        }
-
-        .mindmap-selector {
-            padding: 8px 12px;
-            border: 2px solid #667eea;
-            border-radius: 5px;
-            font-size: 14px;
-            min-width: 200px;
-        }
-
-        .info-text {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .container {
-            position: relative;
-            height: calc(100vh - 180px);
-            background: white;
-            margin: 20px;
-            border-radius: 10px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-        }
-
-        #jsmind_container {
-            width: 100%;
-            height: 100%;
-            background: #f8f9fa;
-        }
-
-        .welcome-screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #666;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .welcome-screen h2 {
-            font-size: 32px;
-            margin-bottom: 20px;
-            color: #333;
-        }
-
-        .welcome-screen p {
-            font-size: 16px;
-            margin-bottom: 30px;
-            max-width: 600px;
-            line-height: 1.6;
-        }
-
-        .welcome-screen .icon {
-            font-size: 80px;
-            margin-bottom: 20px;
-        }
-
-        .toolbar {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            padding: 8px;
-            border-radius: 5px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            display: none;
-        }
-
-        .toolbar button {
-            padding: 8px 12px;
-            margin-left: 5px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .toolbar button:hover {
-            background: #5568d3;
-        }
-    </style>
+    <link rel="stylesheet" href="./standalone_viewer/viewer.css" data-standalone-viewer-asset="css">
+    <link rel="stylesheet" href="data:text/css;base64,KiB7CiAgICBtYXJnaW46IDA7CiAgICBwYWRkaW5nOiAwOwogICAgYm94LXNpemluZzogYm9yZGVyLWJveDsKfQoKYm9keSB7CiAgICBmb250LWZhbWlseTogLWFwcGxlLXN5c3RlbSwgQmxpbmtNYWNTeXN0ZW1Gb250LCAiU2Vnb2UgVUkiLCBSb2JvdG8sICJIZWx2ZXRpY2EgTmV1ZSIsIEFyaWFsLCBzYW5zLXNlcmlmOwogICAgYmFja2dyb3VuZDogbGluZWFyLWdyYWRpZW50KDEzNWRlZywgIzY2N2VlYSAwJSwgIzc2NGJhMiAxMDAlKTsKICAgIG1pbi1oZWlnaHQ6IDEwMHZoOwp9CgouaGVhZGVyIHsKICAgIGJhY2tncm91bmQ6IHdoaXRlOwogICAgcGFkZGluZzogMjBweDsKICAgIGJveC1zaGFkb3c6IDAgMnB4IDEwcHggcmdiYSgwLCAwLCAwLCAwLjEpOwogICAgZGlzcGxheTogZmxleDsKICAgIGp1c3RpZnktY29udGVudDogc3BhY2UtYmV0d2VlbjsKICAgIGFsaWduLWl0ZW1zOiBjZW50ZXI7Cn0KCi5oZWFkZXItY29udGVudCBoMSB7CiAgICBjb2xvcjogIzMzMzsKICAgIGZvbnQtc2l6ZTogMjRweDsKICAgIG1hcmdpbi1ib3R0b206IDVweDsKfQoKLmhlYWRlci1jb250ZW50IHAgewogICAgY29sb3I6ICM2NjY7CiAgICBmb250LXNpemU6IDE0cHg7Cn0KCi5sYW5nLXRvZ2dsZSB7CiAgICBkaXNwbGF5OiBmbGV4OwogICAgZ2FwOiAxMHB4Owp9CgoubGFuZy10b2dnbGUgYnV0dG9uIHsKICAgIHBhZGRpbmc6IDhweCAxNXB4OwogICAgYm9yZGVyOiBub25lOwogICAgYm9yZGVyLXJhZGl1czogNXB4OwogICAgY3Vyc29yOiBwb2ludGVyOwogICAgZm9udC13ZWlnaHQ6IGJvbGQ7CiAgICB0cmFuc2l0aW9uOiBhbGwgMC4zczsKfQoKLmxhbmctdG9nZ2xlIGJ1dHRvbi5hY3RpdmUgewogICAgYmFja2dyb3VuZDogIzRDQUY1MDsKICAgIGNvbG9yOiB3aGl0ZTsKfQoKLmxhbmctdG9nZ2xlIGJ1dHRvbjpub3QoLmFjdGl2ZSkgewogICAgYmFja2dyb3VuZDogI2YwZjBmMDsKICAgIGNvbG9yOiAjNjY2Owp9CgouY29udHJvbHMgewogICAgYmFja2dyb3VuZDogd2hpdGU7CiAgICBwYWRkaW5nOiAxNXB4IDIwcHg7CiAgICBib3gtc2hhZG93OiAwIDJweCA1cHggcmdiYSgwLCAwLCAwLCAwLjEpOwogICAgZGlzcGxheTogZmxleDsKICAgIGFsaWduLWl0ZW1zOiBjZW50ZXI7CiAgICBnYXA6IDE1cHg7CiAgICBmbGV4LXdyYXA6IHdyYXA7Cn0KCi5maWxlLWlucHV0LXdyYXBwZXIgewogICAgcG9zaXRpb246IHJlbGF0aXZlOwp9CgouZmlsZS1pbnB1dC13cmFwcGVyIGlucHV0W3R5cGU9ImZpbGUiXSB7CiAgICBwb3NpdGlvbjogYWJzb2x1dGU7CiAgICBvcGFjaXR5OiAwOwogICAgd2lkdGg6IDA7CiAgICBoZWlnaHQ6IDA7Cn0KCi5maWxlLWlucHV0LWxhYmVsIHsKICAgIGRpc3BsYXk6IGlubGluZS1ibG9jazsKICAgIHBhZGRpbmc6IDEwcHggMjBweDsKICAgIGJhY2tncm91bmQ6ICM2NjdlZWE7CiAgICBjb2xvcjogd2hpdGU7CiAgICBib3JkZXItcmFkaXVzOiA1cHg7CiAgICBjdXJzb3I6IHBvaW50ZXI7CiAgICBmb250LXdlaWdodDogYm9sZDsKICAgIHRyYW5zaXRpb246IGJhY2tncm91bmQgMC4zczsKfQoKLmZpbGUtaW5wdXQtbGFiZWw6aG92ZXIgewogICAgYmFja2dyb3VuZDogIzU1NjhkMzsKfQoKLm1pbmRtYXAtc2VsZWN0b3IgewogICAgcGFkZGluZzogOHB4IDEycHg7CiAgICBib3JkZXI6IDJweCBzb2xpZCAjNjY3ZWVhOwogICAgYm9yZGVyLXJhZGl1czogNXB4OwogICAgZm9udC1zaXplOiAxNHB4OwogICAgbWluLXdpZHRoOiAyMDBweDsKfQoKLmluZm8tdGV4dCB7CiAgICBjb2xvcjogIzY2NjsKICAgIGZvbnQtc2l6ZTogMTRweDsKfQoKLmNvbnRhaW5lciB7CiAgICBwb3NpdGlvbjogcmVsYXRpdmU7CiAgICBoZWlnaHQ6IGNhbGMoMTAwdmggLSAxODBweCk7CiAgICBiYWNrZ3JvdW5kOiB3aGl0ZTsKICAgIG1hcmdpbjogMjBweDsKICAgIGJvcmRlci1yYWRpdXM6IDEwcHg7CiAgICBib3gtc2hhZG93OiAwIDVweCAyMHB4IHJnYmEoMCwgMCwgMCwgMC4yKTsKICAgIG92ZXJmbG93OiBoaWRkZW47Cn0KCiNqc21pbmRfY29udGFpbmVyIHsKICAgIHdpZHRoOiAxMDAlOwogICAgaGVpZ2h0OiAxMDAlOwogICAgYmFja2dyb3VuZDogI2Y4ZjlmYTsKfQoKLndlbGNvbWUtc2NyZWVuIHsKICAgIGRpc3BsYXk6IGZsZXg7CiAgICBmbGV4LWRpcmVjdGlvbjogY29sdW1uOwogICAgYWxpZ24taXRlbXM6IGNlbnRlcjsKICAgIGp1c3RpZnktY29udGVudDogY2VudGVyOwogICAgaGVpZ2h0OiAxMDAlOwogICAgY29sb3I6ICM2NjY7CiAgICB0ZXh0LWFsaWduOiBjZW50ZXI7CiAgICBwYWRkaW5nOiA0MHB4Owp9Cgoud2VsY29tZS1zY3JlZW4gaDIgewogICAgZm9udC1zaXplOiAzMnB4OwogICAgbWFyZ2luLWJvdHRvbTogMjBweDsKICAgIGNvbG9yOiAjMzMzOwp9Cgoud2VsY29tZS1zY3JlZW4gcCB7CiAgICBmb250LXNpemU6IDE2cHg7CiAgICBtYXJnaW4tYm90dG9tOiAzMHB4OwogICAgbWF4LXdpZHRoOiA2MDBweDsKICAgIGxpbmUtaGVpZ2h0OiAxLjY7Cn0KCi53ZWxjb21lLXNjcmVlbiAuaWNvbiB7CiAgICBmb250LXNpemU6IDgwcHg7CiAgICBtYXJnaW4tYm90dG9tOiAyMHB4Owp9CgoudG9vbGJhciB7CiAgICBwb3NpdGlvbjogYWJzb2x1dGU7CiAgICB0b3A6IDEwcHg7CiAgICByaWdodDogMTBweDsKICAgIHotaW5kZXg6IDEwMDA7CiAgICBiYWNrZ3JvdW5kOiB3aGl0ZTsKICAgIHBhZGRpbmc6IDhweDsKICAgIGJvcmRlci1yYWRpdXM6IDVweDsKICAgIGJveC1zaGFkb3c6IDAgMnB4IDhweCByZ2JhKDAsIDAsIDAsIDAuMSk7CiAgICBkaXNwbGF5OiBub25lOwp9CgoudG9vbGJhciBidXR0b24gewogICAgcGFkZGluZzogOHB4IDEycHg7CiAgICBtYXJnaW4tbGVmdDogNXB4OwogICAgYmFja2dyb3VuZDogIzY2N2VlYTsKICAgIGNvbG9yOiB3aGl0ZTsKICAgIGJvcmRlcjogbm9uZTsKICAgIGJvcmRlci1yYWRpdXM6IDRweDsKICAgIGN1cnNvcjogcG9pbnRlcjsKICAgIGZvbnQtd2VpZ2h0OiBib2xkOwp9CgoudG9vbGJhciBidXR0b246aG92ZXIgewogICAgYmFja2dyb3VuZDogIzU1NjhkMzsKfQo=" data-standalone-viewer-fallback="css">
 </head>
 
 <body>
     <div class="header">
         <div class="header-content">
-            <h1 id="title">🧠 Anki MindMap Viewer</h1>
+            <h1 id="title">馃 Anki MindMap Viewer</h1>
             <p id="subtitle">View your mind maps even when the plugin fails | Browser-based | No installation required
             </p>
         </div>
         <div class="lang-toggle">
             <button id="btnEn" class="active">English</button>
-            <button id="btnCn">中文</button>
+            <button id="btnCn">涓枃</button>
         </div>
     </div>
 
     <div class="controls">
         <div class="file-input-wrapper">
             <input type="file" id="fileInput" accept=".json">
-            <label for="fileInput" class="file-input-label" id="fileLabel">📁 Select JSON Backup File</label>
+            <label for="fileInput" class="file-input-label" id="fileLabel">馃搧 Select JSON Backup File</label>
         </div>
 
         <select id="mindmapSelector" class="mindmap-selector" style="display: none;">
@@ -212,22 +36,22 @@
 
     <div class="container">
         <div id="welcomeScreen" class="welcome-screen">
-            <div class="icon">🗺️</div>
+            <div class="icon">&#128506;&#65039;</div>
             <h2 id="welcomeTitle">Welcome to MindMap Viewer</h2>
             <p id="welcomeText">
                 This is a <strong>completely standalone</strong> mind map viewing tool.<br>
                 Click the button above to select a JSON file exported via <code>Backup & Recovery</code>,<br>
                 and view your mind maps directly in the browser.<br><br>
-                <strong>✨ Features:</strong> No Anki plugin required | Offline capable | Cross-platform support
+                <strong>鉁?Features:</strong> No Anki plugin required | Offline capable | Cross-platform support
             </p>
         </div>
 
         <div id="jsmind_container" style="display: none;"></div>
 
         <div class="toolbar" id="toolbar">
-            <button id="btnCenter">🎯 Center</button>
-            <button id="btnZoomIn">🔍 Zoom In</button>
-            <button id="btnZoomOut">🔎 Zoom Out</button>
+            <button id="btnCenter">馃幆 Center</button>
+            <button id="btnZoomIn">馃攳 Zoom In</button>
+            <button id="btnZoomOut">馃攷 Zoom Out</button>
         </div>
     </div>
 
@@ -235,237 +59,8 @@
     <script src="https://cdn.jsdelivr.net/npm/jsmind@0.4.6/js/jsmind.draggable.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsmind@0.4.6/style/jsmind.css">
 
-    <script>
-        let jm = null;
-        let currentData = null;
-        let currentLang = 'en'; // Default to English
-        const elements = {};
-
-        const texts = {
-            en: {
-                title: '🧠 Anki MindMap Viewer',
-                subtitle: 'View your mind maps even when the plugin fails | Browser-based | No installation required',
-                fileLabel: '📁 Select JSON Backup File',
-                selectPlaceholder: 'Select a mind map to view...',
-                welcomeTitle: 'Welcome to MindMap Viewer',
-                welcomeText: 'This is a <strong>completely standalone</strong> mind map viewing tool.<br>Click the button above to select a JSON file exported via <code>Backup & Recovery</code>,<br>and view your mind maps directly in the browser.<br><br><strong>✨ Features:</strong> No Anki plugin required | Offline capable | Cross-platform support',
-                btnCenter: '🎯 Center',
-                btnZoomIn: '🔍 Zoom In',
-                btnZoomOut: '🔎 Zoom Out',
-                fileError: 'File format error: ',
-                loaded: 'Loaded ',
-                mindmaps: ' mind maps',
-                loadedSingle: 'Loaded: ',
-                displayError: 'Error displaying mind map: '
-            },
-            cn: {
-                title: '🧠 Anki 思维导图查看器',
-                subtitle: '即使插件失效，也能完美查看思维导图 | 纯浏览器运行，无需安装任何软件',
-                fileLabel: '📁 选择 JSON 备份文件',
-                selectPlaceholder: '选择要查看的思维导图...',
-                welcomeTitle: '欢迎使用思维导图查看器',
-                welcomeText: '这是一个<strong>完全独立</strong>的思维导图查看工具。<br>点击上方按钮，选择通过 <code>Backup & Recovery</code> 导出的 JSON 文件，<br>即可在浏览器中查看和浏览你的思维导图。<br><br><strong>✨ 特点:</strong> 不依赖 Anki 插件 | 离线可用 | 跨平台支持',
-                btnCenter: '🎯 居中',
-                btnZoomIn: '🔍 放大',
-                btnZoomOut: '🔎 缩小',
-                fileError: '文件格式错误：',
-                loaded: '已加载 ',
-                mindmaps: ' 个思维导图',
-                loadedSingle: '已加载：',
-                displayError: '显示思维导图时出错：'
-            }
-        };
-
-        function switchLanguage(lang) {
-            currentLang = lang;
-
-            // Update button styles
-            elements.btnEn.classList.toggle('active', lang === 'en');
-            elements.btnCn.classList.toggle('active', lang === 'cn');
-
-            // Update UI text
-            const t = texts[lang];
-            elements.title.textContent = t.title;
-            elements.subtitle.textContent = t.subtitle;
-            elements.fileLabel.textContent = t.fileLabel;
-            elements.selectPlaceholder.textContent = t.selectPlaceholder;
-            elements.welcomeTitle.textContent = t.welcomeTitle;
-            elements.welcomeText.innerHTML = t.welcomeText;
-            elements.btnCenter.innerHTML = t.btnCenter;
-            elements.btnZoomIn.innerHTML = t.btnZoomIn;
-            elements.btnZoomOut.innerHTML = t.btnZoomOut;
-
-            // Save preference to localStorage
-            try {
-                localStorage.setItem('mindmap_viewer_lang', lang);
-            } catch (e) { }
-        }
-
-        function handleFileInputChange(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function (event) {
-                try {
-                    const data = JSON.parse(event.target.result);
-                    loadBackupData(data);
-                } catch (error) {
-                    alert(texts[currentLang].fileError + error.message);
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function cacheElements() {
-            [
-                'btnEn', 'btnCn', 'btnCenter', 'btnZoomIn', 'btnZoomOut',
-                'fileInput', 'welcomeScreen', 'jsmind_container', 'toolbar',
-                'mindmapSelector', 'infoText', 'title', 'subtitle', 'fileLabel',
-                'selectPlaceholder', 'welcomeTitle', 'welcomeText'
-            ].forEach(id => {
-                elements[id] = document.getElementById(id);
-            });
-        }
-
-        function init() {
-            cacheElements();
-
-            elements.btnEn.addEventListener('click', function () {
-                switchLanguage('en');
-            });
-            elements.btnCn.addEventListener('click', function () {
-                switchLanguage('cn');
-            });
-            elements.btnCenter.addEventListener('click', centerRoot);
-            elements.btnZoomIn.addEventListener('click', zoomIn);
-            elements.btnZoomOut.addEventListener('click', zoomOut);
-            elements.fileInput.addEventListener('change', handleFileInputChange);
-
-            // Load saved language preference
-            try {
-                const savedLang = localStorage.getItem('mindmap_viewer_lang');
-                if (savedLang && (savedLang === 'en' || savedLang === 'cn')) {
-                    switchLanguage(savedLang);
-                }
-            } catch (e) { }
-        }
-
-        function loadBackupData(data) {
-            elements.welcomeScreen.style.display = 'none';
-            elements.jsmind_container.style.display = 'block';
-            elements.toolbar.style.display = 'block';
-
-            currentData = data;
-
-            if (data.mindmaps && Array.isArray(data.mindmaps)) {
-                const selector = elements.mindmapSelector;
-                selector.style.display = 'block';
-                selector.innerHTML = `<option value="">${texts[currentLang].selectPlaceholder}</option>`;
-
-                const fragment = document.createDocumentFragment();
-                data.mindmaps.forEach((mm, index) => {
-                    const option = document.createElement('option');
-                    option.value = index;
-                    option.textContent = mm.title;
-                    fragment.appendChild(option);
-                });
-                selector.appendChild(fragment);
-
-                selector.onchange = function () {
-                    if (this.value !== '') {
-                        const mm = data.mindmaps[parseInt(this.value)];
-                        displayMindMap(mm.data, mm.title);
-                    }
-                };
-
-                if (data.mindmaps.length > 0) {
-                    displayMindMap(data.mindmaps[0].data, data.mindmaps[0].title);
-                    selector.value = '0';
-                    elements.infoText.textContent =
-                        texts[currentLang].loaded + data.mindmaps.length + texts[currentLang].mindmaps;
-                }
-            } else {
-                const title = data.title || 'Mind Map';
-                displayMindMap(data.data || data, title);
-                elements.infoText.textContent = texts[currentLang].loadedSingle + title;
-            }
-        }
-
-        function displayMindMap(mindData, title) {
-            const container = elements.jsmind_container;
-            container.innerHTML = '';
-
-            let displayData = mindData;
-            if (!displayData.meta) {
-                displayData = {
-                    "meta": {
-                        "name": title,
-                        "author": "viewer",
-                        "version": "0.2"
-                    },
-                    "format": "node_tree",
-                    "data": mindData.data || mindData
-                };
-            }
-
-            const options = {
-                container: 'jsmind_container',
-                theme: 'primary',
-                editable: false,
-                view: {
-                    hmargin: 100,
-                    vmargin: 50,
-                    line_width: 2,
-                    line_color: '#555'
-                }
-            };
-
-            try {
-                jm = new jsMind(options);
-                jm.show(displayData);
-
-                setTimeout(() => {
-                    centerRoot();
-                }, 100);
-            } catch (error) {
-                alert(texts[currentLang].displayError + error.message);
-                console.error(error);
-            }
-        }
-
-        function centerRoot() {
-            if (!jm) return;
-            const container = elements.jsmind_container;
-            const rootNode = container.querySelector('jmnode.root');
-            if (rootNode) {
-                const rect = rootNode.getBoundingClientRect();
-                const containerRect = container.getBoundingClientRect();
-                container.scrollLeft = rect.left - containerRect.left - containerRect.width / 2 + rect.width / 2;
-                container.scrollTop = rect.top - containerRect.top - containerRect.height / 2 + rect.height / 2;
-            }
-        }
-
-        function zoomIn() {
-            if (!jm) return;
-            const nodes = document.querySelectorAll('jmnode');
-            nodes.forEach(node => {
-                const currentSize = parseFloat(window.getComputedStyle(node).fontSize);
-                node.style.fontSize = (currentSize * 1.1) + 'px';
-            });
-        }
-
-        function zoomOut() {
-            if (!jm) return;
-            const nodes = document.querySelectorAll('jmnode');
-            nodes.forEach(node => {
-                const currentSize = parseFloat(window.getComputedStyle(node).fontSize);
-                node.style.fontSize = (currentSize * 0.9) + 'px';
-            });
-        }
-
-        init();
-    </script>
+    <script src="./standalone_viewer/viewer.js" data-standalone-viewer-asset="js"></script>
+    <script src="data:text/javascript;base64,KGZ1bmN0aW9uIChnbG9iYWwpIHsKICAgIGlmIChnbG9iYWwuQW5raU1pbmRNYXBWaWV3ZXIpIHsKICAgICAgICByZXR1cm47CiAgICB9CgogICAgbGV0IGptID0gbnVsbDsKICAgIGxldCBjdXJyZW50RGF0YSA9IG51bGw7CiAgICBsZXQgY3VycmVudExhbmcgPSAnZW4nOyAvLyBEZWZhdWx0IHRvIEVuZ2xpc2gKICAgIGNvbnN0IGVsZW1lbnRzID0ge307CiAgICAKICAgIGNvbnN0IHRleHRzID0gewogICAgICAgIGVuOiB7CiAgICAgICAgICAgIHRpdGxlOiAn8J+noCBBbmtpIE1pbmRNYXAgVmlld2VyJywKICAgICAgICAgICAgc3VidGl0bGU6ICdWaWV3IHlvdXIgbWluZCBtYXBzIGV2ZW4gd2hlbiB0aGUgcGx1Z2luIGZhaWxzIHwgQnJvd3Nlci1iYXNlZCB8IE5vIGluc3RhbGxhdGlvbiByZXF1aXJlZCcsCiAgICAgICAgICAgIGZpbGVMYWJlbDogJ/Cfk4EgU2VsZWN0IEpTT04gQmFja3VwIEZpbGUnLAogICAgICAgICAgICBzZWxlY3RQbGFjZWhvbGRlcjogJ1NlbGVjdCBhIG1pbmQgbWFwIHRvIHZpZXcuLi4nLAogICAgICAgICAgICB3ZWxjb21lVGl0bGU6ICdXZWxjb21lIHRvIE1pbmRNYXAgVmlld2VyJywKICAgICAgICAgICAgd2VsY29tZVRleHQ6ICdUaGlzIGlzIGEgPHN0cm9uZz5jb21wbGV0ZWx5IHN0YW5kYWxvbmU8L3N0cm9uZz4gbWluZCBtYXAgdmlld2luZyB0b29sLjxicj5DbGljayB0aGUgYnV0dG9uIGFib3ZlIHRvIHNlbGVjdCBhIEpTT04gZmlsZSBleHBvcnRlZCB2aWEgPGNvZGU+QmFja3VwICYgUmVjb3Zlcnk8L2NvZGU+LDxicj5hbmQgdmlldyB5b3VyIG1pbmQgbWFwcyBkaXJlY3RseSBpbiB0aGUgYnJvd3Nlci48YnI+PGJyPjxzdHJvbmc+4pyoIEZlYXR1cmVzOjwvc3Ryb25nPiBObyBBbmtpIHBsdWdpbiByZXF1aXJlZCB8IE9mZmxpbmUgY2FwYWJsZSB8IENyb3NzLXBsYXRmb3JtIHN1cHBvcnQnLAogICAgICAgICAgICBidG5DZW50ZXI6ICfwn46vIENlbnRlcicsCiAgICAgICAgICAgIGJ0blpvb21JbjogJ/CflI0gWm9vbSBJbicsCiAgICAgICAgICAgIGJ0blpvb21PdXQ6ICfwn5SOIFpvb20gT3V0JywKICAgICAgICAgICAgZmlsZUVycm9yOiAnRmlsZSBmb3JtYXQgZXJyb3I6ICcsCiAgICAgICAgICAgIGxvYWRlZDogJ0xvYWRlZCAnLAogICAgICAgICAgICBtaW5kbWFwczogJyBtaW5kIG1hcHMnLAogICAgICAgICAgICBsb2FkZWRTaW5nbGU6ICdMb2FkZWQ6ICcsCiAgICAgICAgICAgIGRpc3BsYXlFcnJvcjogJ0Vycm9yIGRpc3BsYXlpbmcgbWluZCBtYXA6ICcKICAgICAgICB9LAogICAgICAgIGNuOiB7CiAgICAgICAgICAgIHRpdGxlOiAn8J+noCBBbmtpIOaAnee7tOWvvOWbvuafpeeci+WZqCcsCiAgICAgICAgICAgIHN1YnRpdGxlOiAn5Y2z5L2/5o+S5Lu25aSx5pWI77yM5Lmf6IO95a6M576O5p+l55yL5oCd57u05a+85Zu+IHwg57qv5rWP6KeI5Zmo6L+Q6KGM77yM5peg6ZyA5a6J6KOF5Lu75L2V6L2v5Lu2JywKICAgICAgICAgICAgZmlsZUxhYmVsOiAn8J+TgSDpgInmi6kgSlNPTiDlpIfku73mlofku7YnLAogICAgICAgICAgICBzZWxlY3RQbGFjZWhvbGRlcjogJ+mAieaLqeimgeafpeeci+eahOaAnee7tOWvvOWbvi4uLicsCiAgICAgICAgICAgIHdlbGNvbWVUaXRsZTogJ+asoui/juS9v+eUqOaAnee7tOWvvOWbvuafpeeci+WZqCcsCiAgICAgICAgICAgIHdlbGNvbWVUZXh0OiAn6L+Z5piv5LiA5LiqPHN0cm9uZz7lrozlhajni6znq4s8L3N0cm9uZz7nmoTmgJ3nu7Tlr7zlm77mn6XnnIvlt6XlhbfjgII8YnI+54K55Ye75LiK5pa55oyJ6ZKu77yM6YCJ5oup6YCa6L+HIDxjb2RlPkJhY2t1cCAmIFJlY292ZXJ5PC9jb2RlPiDlr7zlh7rnmoQgSlNPTiDmlofku7bvvIw8YnI+5Y2z5Y+v5Zyo5rWP6KeI5Zmo5Lit5p+l55yL5ZKM5rWP6KeI5L2g55qE5oCd57u05a+85Zu+44CCPGJyPjxicj48c3Ryb25nPuKcqCDnibnngrk6PC9zdHJvbmc+IOS4jeS+nei1liBBbmtpIOaPkuS7tiB8IOemu+e6v+WPr+eUqCB8IOi3qOW5s+WPsOaUr+aMgScsCiAgICAgICAgICAgIGJ0bkNlbnRlcjogJ/Cfjq8g5bGF5LitJywKICAgICAgICAgICAgYnRuWm9vbUluOiAn8J+UjSDmlL7lpKcnLAogICAgICAgICAgICBidG5ab29tT3V0OiAn8J+UjiDnvKnlsI8nLAogICAgICAgICAgICBmaWxlRXJyb3I6ICfmlofku7bmoLzlvI/plJnor6/vvJonLAogICAgICAgICAgICBsb2FkZWQ6ICflt7LliqDovb0gJywKICAgICAgICAgICAgbWluZG1hcHM6ICcg5Liq5oCd57u05a+85Zu+JywKICAgICAgICAgICAgbG9hZGVkU2luZ2xlOiAn5bey5Yqg6L2977yaJywKICAgICAgICAgICAgZGlzcGxheUVycm9yOiAn5pi+56S65oCd57u05a+85Zu+5pe25Ye66ZSZ77yaJwogICAgICAgIH0KICAgIH07CiAgICAKICAgIGZ1bmN0aW9uIHN3aXRjaExhbmd1YWdlKGxhbmcpIHsKICAgICAgICBjdXJyZW50TGFuZyA9IGxhbmc7CiAgICAKICAgICAgICAvLyBVcGRhdGUgYnV0dG9uIHN0eWxlcwogICAgICAgIGVsZW1lbnRzLmJ0bkVuLmNsYXNzTGlzdC50b2dnbGUoJ2FjdGl2ZScsIGxhbmcgPT09ICdlbicpOwogICAgICAgIGVsZW1lbnRzLmJ0bkNuLmNsYXNzTGlzdC50b2dnbGUoJ2FjdGl2ZScsIGxhbmcgPT09ICdjbicpOwogICAgCiAgICAgICAgLy8gVXBkYXRlIFVJIHRleHQKICAgICAgICBjb25zdCB0ID0gdGV4dHNbbGFuZ107CiAgICAgICAgZWxlbWVudHMudGl0bGUudGV4dENvbnRlbnQgPSB0LnRpdGxlOwogICAgICAgIGVsZW1lbnRzLnN1YnRpdGxlLnRleHRDb250ZW50ID0gdC5zdWJ0aXRsZTsKICAgICAgICBlbGVtZW50cy5maWxlTGFiZWwudGV4dENvbnRlbnQgPSB0LmZpbGVMYWJlbDsKICAgICAgICBlbGVtZW50cy5zZWxlY3RQbGFjZWhvbGRlci50ZXh0Q29udGVudCA9IHQuc2VsZWN0UGxhY2Vob2xkZXI7CiAgICAgICAgZWxlbWVudHMud2VsY29tZVRpdGxlLnRleHRDb250ZW50ID0gdC53ZWxjb21lVGl0bGU7CiAgICAgICAgZWxlbWVudHMud2VsY29tZVRleHQuaW5uZXJIVE1MID0gdC53ZWxjb21lVGV4dDsKICAgICAgICBlbGVtZW50cy5idG5DZW50ZXIuaW5uZXJIVE1MID0gdC5idG5DZW50ZXI7CiAgICAgICAgZWxlbWVudHMuYnRuWm9vbUluLmlubmVySFRNTCA9IHQuYnRuWm9vbUluOwogICAgICAgIGVsZW1lbnRzLmJ0blpvb21PdXQuaW5uZXJIVE1MID0gdC5idG5ab29tT3V0OwogICAgCiAgICAgICAgLy8gU2F2ZSBwcmVmZXJlbmNlIHRvIGxvY2FsU3RvcmFnZQogICAgICAgIHRyeSB7CiAgICAgICAgICAgIGxvY2FsU3RvcmFnZS5zZXRJdGVtKCdtaW5kbWFwX3ZpZXdlcl9sYW5nJywgbGFuZyk7CiAgICAgICAgfSBjYXRjaCAoZSkgeyB9CiAgICB9CiAgICAKICAgIGZ1bmN0aW9uIGhhbmRsZUZpbGVJbnB1dENoYW5nZShlKSB7CiAgICAgICAgY29uc3QgZmlsZSA9IGUudGFyZ2V0LmZpbGVzWzBdOwogICAgICAgIGlmICghZmlsZSkgcmV0dXJuOwogICAgCiAgICAgICAgY29uc3QgcmVhZGVyID0gbmV3IEZpbGVSZWFkZXIoKTsKICAgICAgICByZWFkZXIub25sb2FkID0gZnVuY3Rpb24gKGV2ZW50KSB7CiAgICAgICAgICAgIHRyeSB7CiAgICAgICAgICAgICAgICBjb25zdCBkYXRhID0gSlNPTi5wYXJzZShldmVudC50YXJnZXQucmVzdWx0KTsKICAgICAgICAgICAgICAgIGxvYWRCYWNrdXBEYXRhKGRhdGEpOwogICAgICAgICAgICB9IGNhdGNoIChlcnJvcikgewogICAgICAgICAgICAgICAgYWxlcnQodGV4dHNbY3VycmVudExhbmddLmZpbGVFcnJvciArIGVycm9yLm1lc3NhZ2UpOwogICAgICAgICAgICB9CiAgICAgICAgfTsKICAgICAgICByZWFkZXIucmVhZEFzVGV4dChmaWxlKTsKICAgIH0KICAgIAogICAgZnVuY3Rpb24gY2FjaGVFbGVtZW50cygpIHsKICAgICAgICBbCiAgICAgICAgICAgICdidG5FbicsICdidG5DbicsICdidG5DZW50ZXInLCAnYnRuWm9vbUluJywgJ2J0blpvb21PdXQnLAogICAgICAgICAgICAnZmlsZUlucHV0JywgJ3dlbGNvbWVTY3JlZW4nLCAnanNtaW5kX2NvbnRhaW5lcicsICd0b29sYmFyJywKICAgICAgICAgICAgJ21pbmRtYXBTZWxlY3RvcicsICdpbmZvVGV4dCcsICd0aXRsZScsICdzdWJ0aXRsZScsICdmaWxlTGFiZWwnLAogICAgICAgICAgICAnc2VsZWN0UGxhY2Vob2xkZXInLCAnd2VsY29tZVRpdGxlJywgJ3dlbGNvbWVUZXh0JwogICAgICAgIF0uZm9yRWFjaChpZCA9PiB7CiAgICAgICAgICAgIGVsZW1lbnRzW2lkXSA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKGlkKTsKICAgICAgICB9KTsKICAgIH0KICAgIAogICAgZnVuY3Rpb24gaW5pdCgpIHsKICAgICAgICBjYWNoZUVsZW1lbnRzKCk7CiAgICAKICAgICAgICBlbGVtZW50cy5idG5Fbi5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsIGZ1bmN0aW9uICgpIHsKICAgICAgICAgICAgc3dpdGNoTGFuZ3VhZ2UoJ2VuJyk7CiAgICAgICAgfSk7CiAgICAgICAgZWxlbWVudHMuYnRuQ24uYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCBmdW5jdGlvbiAoKSB7CiAgICAgICAgICAgIHN3aXRjaExhbmd1YWdlKCdjbicpOwogICAgICAgIH0pOwogICAgICAgIGVsZW1lbnRzLmJ0bkNlbnRlci5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsIGNlbnRlclJvb3QpOwogICAgICAgIGVsZW1lbnRzLmJ0blpvb21Jbi5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsIHpvb21Jbik7CiAgICAgICAgZWxlbWVudHMuYnRuWm9vbU91dC5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsIHpvb21PdXQpOwogICAgICAgIGVsZW1lbnRzLmZpbGVJbnB1dC5hZGRFdmVudExpc3RlbmVyKCdjaGFuZ2UnLCBoYW5kbGVGaWxlSW5wdXRDaGFuZ2UpOwogICAgCiAgICAgICAgLy8gTG9hZCBzYXZlZCBsYW5ndWFnZSBwcmVmZXJlbmNlCiAgICAgICAgdHJ5IHsKICAgICAgICAgICAgY29uc3Qgc2F2ZWRMYW5nID0gbG9jYWxTdG9yYWdlLmdldEl0ZW0oJ21pbmRtYXBfdmlld2VyX2xhbmcnKTsKICAgICAgICAgICAgaWYgKHNhdmVkTGFuZyAmJiAoc2F2ZWRMYW5nID09PSAnZW4nIHx8IHNhdmVkTGFuZyA9PT0gJ2NuJykpIHsKICAgICAgICAgICAgICAgIHN3aXRjaExhbmd1YWdlKHNhdmVkTGFuZyk7CiAgICAgICAgICAgIH0KICAgICAgICB9IGNhdGNoIChlKSB7IH0KICAgIH0KICAgIAogICAgZnVuY3Rpb24gbG9hZEJhY2t1cERhdGEoZGF0YSkgewogICAgICAgIGVsZW1lbnRzLndlbGNvbWVTY3JlZW4uc3R5bGUuZGlzcGxheSA9ICdub25lJzsKICAgICAgICBlbGVtZW50cy5qc21pbmRfY29udGFpbmVyLnN0eWxlLmRpc3BsYXkgPSAnYmxvY2snOwogICAgICAgIGVsZW1lbnRzLnRvb2xiYXIuc3R5bGUuZGlzcGxheSA9ICdibG9jayc7CiAgICAKICAgICAgICBjdXJyZW50RGF0YSA9IGRhdGE7CiAgICAKICAgICAgICBpZiAoZGF0YS5taW5kbWFwcyAmJiBBcnJheS5pc0FycmF5KGRhdGEubWluZG1hcHMpKSB7CiAgICAgICAgICAgIGNvbnN0IHNlbGVjdG9yID0gZWxlbWVudHMubWluZG1hcFNlbGVjdG9yOwogICAgICAgICAgICBzZWxlY3Rvci5zdHlsZS5kaXNwbGF5ID0gJ2Jsb2NrJzsKICAgICAgICAgICAgc2VsZWN0b3IuaW5uZXJIVE1MID0gYDxvcHRpb24gdmFsdWU9IiI+JHt0ZXh0c1tjdXJyZW50TGFuZ10uc2VsZWN0UGxhY2Vob2xkZXJ9PC9vcHRpb24+YDsKICAgIAogICAgICAgICAgICBjb25zdCBmcmFnbWVudCA9IGRvY3VtZW50LmNyZWF0ZURvY3VtZW50RnJhZ21lbnQoKTsKICAgICAgICAgICAgZGF0YS5taW5kbWFwcy5mb3JFYWNoKChtbSwgaW5kZXgpID0+IHsKICAgICAgICAgICAgICAgIGNvbnN0IG9wdGlvbiA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ29wdGlvbicpOwogICAgICAgICAgICAgICAgb3B0aW9uLnZhbHVlID0gaW5kZXg7CiAgICAgICAgICAgICAgICBvcHRpb24udGV4dENvbnRlbnQgPSBtbS50aXRsZTsKICAgICAgICAgICAgICAgIGZyYWdtZW50LmFwcGVuZENoaWxkKG9wdGlvbik7CiAgICAgICAgICAgIH0pOwogICAgICAgICAgICBzZWxlY3Rvci5hcHBlbmRDaGlsZChmcmFnbWVudCk7CiAgICAKICAgICAgICAgICAgc2VsZWN0b3Iub25jaGFuZ2UgPSBmdW5jdGlvbiAoKSB7CiAgICAgICAgICAgICAgICBpZiAodGhpcy52YWx1ZSAhPT0gJycpIHsKICAgICAgICAgICAgICAgICAgICBjb25zdCBtbSA9IGRhdGEubWluZG1hcHNbcGFyc2VJbnQodGhpcy52YWx1ZSldOwogICAgICAgICAgICAgICAgICAgIGRpc3BsYXlNaW5kTWFwKG1tLmRhdGEsIG1tLnRpdGxlKTsKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfTsKICAgIAogICAgICAgICAgICBpZiAoZGF0YS5taW5kbWFwcy5sZW5ndGggPiAwKSB7CiAgICAgICAgICAgICAgICBkaXNwbGF5TWluZE1hcChkYXRhLm1pbmRtYXBzWzBdLmRhdGEsIGRhdGEubWluZG1hcHNbMF0udGl0bGUpOwogICAgICAgICAgICAgICAgc2VsZWN0b3IudmFsdWUgPSAnMCc7CiAgICAgICAgICAgICAgICBlbGVtZW50cy5pbmZvVGV4dC50ZXh0Q29udGVudCA9CiAgICAgICAgICAgICAgICAgICAgdGV4dHNbY3VycmVudExhbmddLmxvYWRlZCArIGRhdGEubWluZG1hcHMubGVuZ3RoICsgdGV4dHNbY3VycmVudExhbmddLm1pbmRtYXBzOwogICAgICAgICAgICB9CiAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgY29uc3QgdGl0bGUgPSBkYXRhLnRpdGxlIHx8ICdNaW5kIE1hcCc7CiAgICAgICAgICAgIGRpc3BsYXlNaW5kTWFwKGRhdGEuZGF0YSB8fCBkYXRhLCB0aXRsZSk7CiAgICAgICAgICAgIGVsZW1lbnRzLmluZm9UZXh0LnRleHRDb250ZW50ID0gdGV4dHNbY3VycmVudExhbmddLmxvYWRlZFNpbmdsZSArIHRpdGxlOwogICAgICAgIH0KICAgIH0KICAgIAogICAgZnVuY3Rpb24gZGlzcGxheU1pbmRNYXAobWluZERhdGEsIHRpdGxlKSB7CiAgICAgICAgY29uc3QgY29udGFpbmVyID0gZWxlbWVudHMuanNtaW5kX2NvbnRhaW5lcjsKICAgICAgICBjb250YWluZXIuaW5uZXJIVE1MID0gJyc7CiAgICAKICAgICAgICBsZXQgZGlzcGxheURhdGEgPSBtaW5kRGF0YTsKICAgICAgICBpZiAoIWRpc3BsYXlEYXRhLm1ldGEpIHsKICAgICAgICAgICAgZGlzcGxheURhdGEgPSB7CiAgICAgICAgICAgICAgICAibWV0YSI6IHsKICAgICAgICAgICAgICAgICAgICAibmFtZSI6IHRpdGxlLAogICAgICAgICAgICAgICAgICAgICJhdXRob3IiOiAidmlld2VyIiwKICAgICAgICAgICAgICAgICAgICAidmVyc2lvbiI6ICIwLjIiCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgImZvcm1hdCI6ICJub2RlX3RyZWUiLAogICAgICAgICAgICAgICAgImRhdGEiOiBtaW5kRGF0YS5kYXRhIHx8IG1pbmREYXRhCiAgICAgICAgICAgIH07CiAgICAgICAgfQogICAgCiAgICAgICAgY29uc3Qgb3B0aW9ucyA9IHsKICAgICAgICAgICAgY29udGFpbmVyOiAnanNtaW5kX2NvbnRhaW5lcicsCiAgICAgICAgICAgIHRoZW1lOiAncHJpbWFyeScsCiAgICAgICAgICAgIGVkaXRhYmxlOiBmYWxzZSwKICAgICAgICAgICAgdmlldzogewogICAgICAgICAgICAgICAgaG1hcmdpbjogMTAwLAogICAgICAgICAgICAgICAgdm1hcmdpbjogNTAsCiAgICAgICAgICAgICAgICBsaW5lX3dpZHRoOiAyLAogICAgICAgICAgICAgICAgbGluZV9jb2xvcjogJyM1NTUnCiAgICAgICAgICAgIH0KICAgICAgICB9OwogICAgCiAgICAgICAgdHJ5IHsKICAgICAgICAgICAgam0gPSBuZXcganNNaW5kKG9wdGlvbnMpOwogICAgICAgICAgICBqbS5zaG93KGRpc3BsYXlEYXRhKTsKICAgIAogICAgICAgICAgICBzZXRUaW1lb3V0KCgpID0+IHsKICAgICAgICAgICAgICAgIGNlbnRlclJvb3QoKTsKICAgICAgICAgICAgfSwgMTAwKTsKICAgICAgICB9IGNhdGNoIChlcnJvcikgewogICAgICAgICAgICBhbGVydCh0ZXh0c1tjdXJyZW50TGFuZ10uZGlzcGxheUVycm9yICsgZXJyb3IubWVzc2FnZSk7CiAgICAgICAgICAgIGNvbnNvbGUuZXJyb3IoZXJyb3IpOwogICAgICAgIH0KICAgIH0KICAgIAogICAgZnVuY3Rpb24gY2VudGVyUm9vdCgpIHsKICAgICAgICBpZiAoIWptKSByZXR1cm47CiAgICAgICAgY29uc3QgY29udGFpbmVyID0gZWxlbWVudHMuanNtaW5kX2NvbnRhaW5lcjsKICAgICAgICBjb25zdCByb290Tm9kZSA9IGNvbnRhaW5lci5xdWVyeVNlbGVjdG9yKCdqbW5vZGUucm9vdCcpOwogICAgICAgIGlmIChyb290Tm9kZSkgewogICAgICAgICAgICBjb25zdCByZWN0ID0gcm9vdE5vZGUuZ2V0Qm91bmRpbmdDbGllbnRSZWN0KCk7CiAgICAgICAgICAgIGNvbnN0IGNvbnRhaW5lclJlY3QgPSBjb250YWluZXIuZ2V0Qm91bmRpbmdDbGllbnRSZWN0KCk7CiAgICAgICAgICAgIGNvbnRhaW5lci5zY3JvbGxMZWZ0ID0gcmVjdC5sZWZ0IC0gY29udGFpbmVyUmVjdC5sZWZ0IC0gY29udGFpbmVyUmVjdC53aWR0aCAvIDIgKyByZWN0LndpZHRoIC8gMjsKICAgICAgICAgICAgY29udGFpbmVyLnNjcm9sbFRvcCA9IHJlY3QudG9wIC0gY29udGFpbmVyUmVjdC50b3AgLSBjb250YWluZXJSZWN0LmhlaWdodCAvIDIgKyByZWN0LmhlaWdodCAvIDI7CiAgICAgICAgfQogICAgfQogICAgCiAgICBmdW5jdGlvbiB6b29tSW4oKSB7CiAgICAgICAgaWYgKCFqbSkgcmV0dXJuOwogICAgICAgIGNvbnN0IG5vZGVzID0gZG9jdW1lbnQucXVlcnlTZWxlY3RvckFsbCgnam1ub2RlJyk7CiAgICAgICAgbm9kZXMuZm9yRWFjaChub2RlID0+IHsKICAgICAgICAgICAgY29uc3QgY3VycmVudFNpemUgPSBwYXJzZUZsb2F0KHdpbmRvdy5nZXRDb21wdXRlZFN0eWxlKG5vZGUpLmZvbnRTaXplKTsKICAgICAgICAgICAgbm9kZS5zdHlsZS5mb250U2l6ZSA9IChjdXJyZW50U2l6ZSAqIDEuMSkgKyAncHgnOwogICAgICAgIH0pOwogICAgfQogICAgCiAgICBmdW5jdGlvbiB6b29tT3V0KCkgewogICAgICAgIGlmICgham0pIHJldHVybjsKICAgICAgICBjb25zdCBub2RlcyA9IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3JBbGwoJ2ptbm9kZScpOwogICAgICAgIG5vZGVzLmZvckVhY2gobm9kZSA9PiB7CiAgICAgICAgICAgIGNvbnN0IGN1cnJlbnRTaXplID0gcGFyc2VGbG9hdCh3aW5kb3cuZ2V0Q29tcHV0ZWRTdHlsZShub2RlKS5mb250U2l6ZSk7CiAgICAgICAgICAgIG5vZGUuc3R5bGUuZm9udFNpemUgPSAoY3VycmVudFNpemUgKiAwLjkpICsgJ3B4JzsKICAgICAgICB9KTsKICAgIH0KICAgIAogICAgaW5pdCgpOwogICAgCiAgICBnbG9iYWwuQW5raU1pbmRNYXBWaWV3ZXIgPSB7CiAgICAgICAgc3dpdGNoTGFuZ3VhZ2U6IHN3aXRjaExhbmd1YWdlLAogICAgICAgIGxvYWRCYWNrdXBEYXRhOiBsb2FkQmFja3VwRGF0YSwKICAgICAgICBkaXNwbGF5TWluZE1hcDogZGlzcGxheU1pbmRNYXAsCiAgICAgICAgY2VudGVyUm9vdDogY2VudGVyUm9vdCwKICAgICAgICB6b29tSW46IHpvb21JbiwKICAgICAgICB6b29tT3V0OiB6b29tT3V0CiAgICB9Owp9KSh3aW5kb3cpOwo=" data-standalone-viewer-fallback="js"></script>
 </body>
 
 </html>

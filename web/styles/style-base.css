@@ -1,0 +1,23 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #f5f5dc;
+}
+
+#jsmind_container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* Container background - can be overridden by custom background image */
+.jsmind-inner {
+    background: transparent;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}

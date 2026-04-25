@@ -1,0 +1,71 @@
+/* Summary node styling - match regular nodes with different background */
+jmnode[data-is-summary="true"] {
+    background-color: #3b82f6 !important;
+    background-image: none !important;
+    cursor: pointer;
+    /* Match default theme styling */
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 1px 1px 1px #666;
+    font: 16px/1.125 Verdana, Arial, Helvetica, sans-serif;
+    color: #fff;
+}
+
+/* Theme override for summary nodes in modern-premium theme */
+jmnodes.theme-modern-premium jmnode[data-is-summary="true"] {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    padding: 14px 20px;
+    border: 2px solid rgba(148, 163, 184, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
+    font: 16px/1.5 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: 500;
+    color: #ffffff;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+jmnodes.theme-modern-premium jmnode[data-is-summary="true"]:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(59, 130, 246, 0.4), 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Summary brace SVG styling */
+.summary-brace {
+    pointer-events: none;
+}
+
+.summary-brace path {
+    transition: stroke 0.3s ease;
+}
+
+/* Boundary box SVG styling */
+.boundary-box {
+    /* Allow clicks to pass through to nodes inside the boundary. */
+    pointer-events: none;
+}
+
+.boundary-box .boundary-stroke {
+    /* The visible outline should not steal events from the hit target. */
+    pointer-events: none;
+}
+
+.boundary-box .boundary-fill {
+    pointer-events: none;
+}
+
+.boundary-box .boundary-hit {
+    pointer-events: stroke;
+    cursor: pointer;
+}
+
+.boundary-box rect {
+    transition: stroke-width 0.2s ease;
+}
+
+.boundary-box.selected .boundary-stroke {
+    stroke-width: 4;
+}
+
+.boundary-box .boundary-hit:hover ~ .boundary-stroke {
+    stroke-width: 3.5;
+}

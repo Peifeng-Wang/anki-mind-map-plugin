@@ -1,0 +1,9 @@
+.jmnode-overflow-wrap jmnodes {
+    min-width: 420px;
+}
+
+.jmnode-overflow-hidden jmnode {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

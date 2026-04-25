@@ -1,0 +1,31 @@
+/* default theme */
+jmnode {
+    padding: 10px;
+    background-color: #fff;
+    color: #333;
+    border-radius: 5px;
+    box-shadow: 1px 1px 1px #666;
+    font: 16px/1.125 Verdana, Arial, Helvetica, sans-serif;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+jmnode:hover {
+    box-shadow: 2px 2px 8px #000;
+    background-color: #ebebeb;
+    color: #333;
+}
+
+jmnode.selected {
+    background-color: #11f;
+    color: #fff;
+    box-shadow: 2px 2px 8px #000;
+    transition: background-color 0.1s ease-in, color 0.1s ease-in, box-shadow 0.1s ease-in;
+}
+
+jmnode.root {
+    font-size: 24px;
+}
+
+jmexpander:hover {
+    border-color: #000;
+}

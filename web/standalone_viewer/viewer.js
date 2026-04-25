@@ -1,0 +1,244 @@
+(function (global) {
+    if (global.AnkiMindMapViewer) {
+        return;
+    }
+
+    let jm = null;
+    let currentData = null;
+    let currentLang = 'en'; // Default to English
+    const elements = {};
+    
+    const texts = {
+        en: {
+            title: '🧠 Anki MindMap Viewer',
+            subtitle: 'View your mind maps even when the plugin fails | Browser-based | No installation required',
+            fileLabel: '📁 Select JSON Backup File',
+            selectPlaceholder: 'Select a mind map to view...',
+            welcomeTitle: 'Welcome to MindMap Viewer',
+            welcomeText: 'This is a <strong>completely standalone</strong> mind map viewing tool.<br>Click the button above to select a JSON file exported via <code>Backup & Recovery</code>,<br>and view your mind maps directly in the browser.<br><br><strong>✨ Features:</strong> No Anki plugin required | Offline capable | Cross-platform support',
+            btnCenter: '🎯 Center',
+            btnZoomIn: '🔍 Zoom In',
+            btnZoomOut: '🔎 Zoom Out',
+            fileError: 'File format error: ',
+            loaded: 'Loaded ',
+            mindmaps: ' mind maps',
+            loadedSingle: 'Loaded: ',
+            displayError: 'Error displaying mind map: '
+        },
+        cn: {
+            title: '🧠 Anki 思维导图查看器',
+            subtitle: '即使插件失效，也能完美查看思维导图 | 纯浏览器运行，无需安装任何软件',
+            fileLabel: '📁 选择 JSON 备份文件',
+            selectPlaceholder: '选择要查看的思维导图...',
+            welcomeTitle: '欢迎使用思维导图查看器',
+            welcomeText: '这是一个<strong>完全独立</strong>的思维导图查看工具。<br>点击上方按钮，选择通过 <code>Backup & Recovery</code> 导出的 JSON 文件，<br>即可在浏览器中查看和浏览你的思维导图。<br><br><strong>✨ 特点:</strong> 不依赖 Anki 插件 | 离线可用 | 跨平台支持',
+            btnCenter: '🎯 居中',
+            btnZoomIn: '🔍 放大',
+            btnZoomOut: '🔎 缩小',
+            fileError: '文件格式错误：',
+            loaded: '已加载 ',
+            mindmaps: ' 个思维导图',
+            loadedSingle: '已加载：',
+            displayError: '显示思维导图时出错：'
+        }
+    };
+    
+    function switchLanguage(lang) {
+        currentLang = lang;
+    
+        // Update button styles
+        elements.btnEn.classList.toggle('active', lang === 'en');
+        elements.btnCn.classList.toggle('active', lang === 'cn');
+    
+        // Update UI text
+        const t = texts[lang];
+        elements.title.textContent = t.title;
+        elements.subtitle.textContent = t.subtitle;
+        elements.fileLabel.textContent = t.fileLabel;
+        elements.selectPlaceholder.textContent = t.selectPlaceholder;
+        elements.welcomeTitle.textContent = t.welcomeTitle;
+        elements.welcomeText.innerHTML = t.welcomeText;
+        elements.btnCenter.innerHTML = t.btnCenter;
+        elements.btnZoomIn.innerHTML = t.btnZoomIn;
+        elements.btnZoomOut.innerHTML = t.btnZoomOut;
+    
+        // Save preference to localStorage
+        try {
+            localStorage.setItem('mindmap_viewer_lang', lang);
+        } catch (e) { }
+    }
+    
+    function handleFileInputChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+    
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            try {
+                const data = JSON.parse(event.target.result);
+                loadBackupData(data);
+            } catch (error) {
+                alert(texts[currentLang].fileError + error.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+    
+    function cacheElements() {
+        [
+            'btnEn', 'btnCn', 'btnCenter', 'btnZoomIn', 'btnZoomOut',
+            'fileInput', 'welcomeScreen', 'jsmind_container', 'toolbar',
+            'mindmapSelector', 'infoText', 'title', 'subtitle', 'fileLabel',
+            'selectPlaceholder', 'welcomeTitle', 'welcomeText'
+        ].forEach(id => {
+            elements[id] = document.getElementById(id);
+        });
+    }
+    
+    function init() {
+        cacheElements();
+    
+        elements.btnEn.addEventListener('click', function () {
+            switchLanguage('en');
+        });
+        elements.btnCn.addEventListener('click', function () {
+            switchLanguage('cn');
+        });
+        elements.btnCenter.addEventListener('click', centerRoot);
+        elements.btnZoomIn.addEventListener('click', zoomIn);
+        elements.btnZoomOut.addEventListener('click', zoomOut);
+        elements.fileInput.addEventListener('change', handleFileInputChange);
+    
+        // Load saved language preference
+        try {
+            const savedLang = localStorage.getItem('mindmap_viewer_lang');
+            if (savedLang && (savedLang === 'en' || savedLang === 'cn')) {
+                switchLanguage(savedLang);
+            }
+        } catch (e) { }
+    }
+    
+    function loadBackupData(data) {
+        elements.welcomeScreen.style.display = 'none';
+        elements.jsmind_container.style.display = 'block';
+        elements.toolbar.style.display = 'block';
+    
+        currentData = data;
+    
+        if (data.mindmaps && Array.isArray(data.mindmaps)) {
+            const selector = elements.mindmapSelector;
+            selector.style.display = 'block';
+            selector.innerHTML = `<option value="">${texts[currentLang].selectPlaceholder}</option>`;
+    
+            const fragment = document.createDocumentFragment();
+            data.mindmaps.forEach((mm, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = mm.title;
+                fragment.appendChild(option);
+            });
+            selector.appendChild(fragment);
+    
+            selector.onchange = function () {
+                if (this.value !== '') {
+                    const mm = data.mindmaps[parseInt(this.value)];
+                    displayMindMap(mm.data, mm.title);
+                }
+            };
+    
+            if (data.mindmaps.length > 0) {
+                displayMindMap(data.mindmaps[0].data, data.mindmaps[0].title);
+                selector.value = '0';
+                elements.infoText.textContent =
+                    texts[currentLang].loaded + data.mindmaps.length + texts[currentLang].mindmaps;
+            }
+        } else {
+            const title = data.title || 'Mind Map';
+            displayMindMap(data.data || data, title);
+            elements.infoText.textContent = texts[currentLang].loadedSingle + title;
+        }
+    }
+    
+    function displayMindMap(mindData, title) {
+        const container = elements.jsmind_container;
+        container.innerHTML = '';
+    
+        let displayData = mindData;
+        if (!displayData.meta) {
+            displayData = {
+                "meta": {
+                    "name": title,
+                    "author": "viewer",
+                    "version": "0.2"
+                },
+                "format": "node_tree",
+                "data": mindData.data || mindData
+            };
+        }
+    
+        const options = {
+            container: 'jsmind_container',
+            theme: 'primary',
+            editable: false,
+            view: {
+                hmargin: 100,
+                vmargin: 50,
+                line_width: 2,
+                line_color: '#555'
+            }
+        };
+    
+        try {
+            jm = new jsMind(options);
+            jm.show(displayData);
+    
+            setTimeout(() => {
+                centerRoot();
+            }, 100);
+        } catch (error) {
+            alert(texts[currentLang].displayError + error.message);
+            console.error(error);
+        }
+    }
+    
+    function centerRoot() {
+        if (!jm) return;
+        const container = elements.jsmind_container;
+        const rootNode = container.querySelector('jmnode.root');
+        if (rootNode) {
+            const rect = rootNode.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            container.scrollLeft = rect.left - containerRect.left - containerRect.width / 2 + rect.width / 2;
+            container.scrollTop = rect.top - containerRect.top - containerRect.height / 2 + rect.height / 2;
+        }
+    }
+    
+    function zoomIn() {
+        if (!jm) return;
+        const nodes = document.querySelectorAll('jmnode');
+        nodes.forEach(node => {
+            const currentSize = parseFloat(window.getComputedStyle(node).fontSize);
+            node.style.fontSize = (currentSize * 1.1) + 'px';
+        });
+    }
+    
+    function zoomOut() {
+        if (!jm) return;
+        const nodes = document.querySelectorAll('jmnode');
+        nodes.forEach(node => {
+            const currentSize = parseFloat(window.getComputedStyle(node).fontSize);
+            node.style.fontSize = (currentSize * 0.9) + 'px';
+        });
+    }
+    
+    init();
+    
+    global.AnkiMindMapViewer = {
+        switchLanguage: switchLanguage,
+        loadBackupData: loadBackupData,
+        displayMindMap: displayMindMap,
+        centerRoot: centerRoot,
+        zoomIn: zoomIn,
+        zoomOut: zoomOut
+    };
+})(window);

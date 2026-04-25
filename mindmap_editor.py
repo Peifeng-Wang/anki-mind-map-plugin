@@ -76,13 +76,71 @@ class MindMapDialog(QDialog):
             with open(os.path.join(web_dir, filename), 'r', encoding='utf-8') as f:
                 return f.read()
 
+        def read_assets(filenames):
+            return "\n".join(read_asset(filename) for filename in filenames)
+
+        def read_css_entry(filename):
+            """Inline split CSS imports because Anki embeds assets in a style tag."""
+            content = read_asset(filename)
+            expanded = []
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("@import") and "url(" in stripped:
+                    import_path = stripped.split("url(", 1)[1].split(")", 1)[0].strip("\"'")
+                    import_path = import_path.lstrip("./").replace("/", os.sep)
+                    expanded.append(read_asset(import_path))
+                else:
+                    expanded.append(line)
+            return "\n".join(expanded)
+
         try:
             # Load jsMind assets
-            jsmind_js = read_asset("jsmind.js")
-            jsmind_draggable = read_asset("jsmind.draggable.js")
-            jsmind_css = read_asset("jsmind.css")
-            style_css = read_asset("style.css")
-            main_js = read_asset("main.js")
+            jsmind_js = read_assets([
+                "jsmind.core.js",
+                "jsmind.model.js",
+                "jsmind.format.js",
+                "jsmind.util.js",
+                "jsmind.data-provider.js",
+                "jsmind.layout-provider.js",
+                "jsmind.view-provider.js",
+                "jsmind.shortcut-plugin.js",
+                "jsmind.js",
+            ])
+            jsmind_draggable = read_assets([
+                "jsmind.draggable.options.js",
+                "jsmind.draggable.canvas.js",
+                "jsmind.draggable.highlight.js",
+                "jsmind.draggable.shadow.js",
+                "jsmind.draggable.timer.js",
+                "jsmind.draggable.lookup.js",
+                "jsmind.draggable.autoscroll.js",
+                "jsmind.draggable.move.js",
+                "jsmind.draggable.events.js",
+                "jsmind.draggable.core.js",
+            ])
+            jsmind_css = read_css_entry("jsmind.css")
+            style_css = read_css_entry("style.css")
+            main_js = read_assets([
+                "main/state.js",
+                "main/jsmind_dom.js",
+                "main/hotkeys.js",
+                "main/ui_feedback.js",
+                "main/text_formatting.js",
+                "main/app_events.js",
+                "main/floating_nodes.js",
+                "main/persistence.js",
+                "main/mathjax.js",
+                "main/node_commands.js",
+                "main/persistence_reload.js",
+                "main/selection.js",
+                "main/summary_braces.js",
+                "main/boundaries.js",
+                "main/navigation.js",
+                "main/node_editor.js",
+                "main/backend_links.js",
+                "main/clipboard.js",
+                "main/app_events_tail.js",
+            ])
             
             # Prepare data for injection
             data_json = self.note['Data']

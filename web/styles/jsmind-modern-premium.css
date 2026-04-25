@@ -1,0 +1,79 @@
+/* Modern Premium Theme - Custom Enhanced Design */
+jmnodes.theme-modern-premium jmnode {
+    padding: 14px 20px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%);
+    backdrop-filter: blur(10px);
+    color: #1e293b;
+    border: 2px solid rgba(148, 163, 184, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
+    font: 16px/1.5 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: 500;
+    transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1), font-size 0.3s cubic-bezier(0.4, 0, 0.2, 1), font-weight 0.3s cubic-bezier(0.4, 0, 0.2, 1), letter-spacing 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+jmnodes.theme-modern-premium jmnode::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+jmnodes.theme-modern-premium jmnode:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(99, 102, 241, 0.25), 0 8px 16px rgba(0, 0, 0, 0.15);
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+jmnodes.theme-modern-premium jmnode:hover::before {
+    opacity: 1;
+}
+
+jmnodes.theme-modern-premium jmnode.selected {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #ffffff;
+    border-color: rgba(99, 102, 241, 0.8);
+    box-shadow: 0 12px 32px rgba(99, 102, 241, 0.4), 0 8px 16px rgba(139, 92, 246, 0.3);
+    transform: scale(1.05);
+}
+
+jmnodes.theme-modern-premium jmnode.root {
+    font-size: 26px;
+    font-weight: 700;
+    padding: 18px 32px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+    color: #ffffff;
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 16px 48px rgba(99, 102, 241, 0.4), 0 8px 24px rgba(139, 92, 246, 0.3);
+    letter-spacing: 0.5px;
+}
+
+jmnodes.theme-modern-premium jmnode.root:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 20px 56px rgba(99, 102, 241, 0.5), 0 12px 28px rgba(139, 92, 246, 0.4);
+}
+
+jmnodes.theme-modern-premium jmexpander {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, border-width 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease, width 0.3s ease, height 0.3s ease, border-radius 0.3s ease, font-weight 0.3s ease;
+    width: 16px;
+    height: 16px;
+    border-radius: 8px;
+}
+
+jmnodes.theme-modern-premium jmexpander:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    transform: scale(1.15);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+}
