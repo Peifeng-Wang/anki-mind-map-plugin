@@ -2,8 +2,12 @@ from aqt import mw, gui_hooks
 from aqt.qt import *
 from aqt.utils import tooltip
 from typing import Any
-from .mindmap_manager import MindMapManager
-from .usage_guide import show_usage
+try:
+    from .mindmap_manager import MindMapManager
+    from .usage_guide import show_usage
+except ImportError:
+    from mindmap_manager import MindMapManager
+    from usage_guide import show_usage
 
 # Ensure newly-added config keys appear for users with an existing overridden config.
 def _deep_merge_defaults(user_value: Any, default_value: Any) -> tuple[Any, bool]:
@@ -58,7 +62,10 @@ _ensure_config_defaults()
 # Ensure model is up-to-date when collection loads (one-time migration)
 def on_collection_loaded(col):
     _ensure_config_defaults()
-    from .note_manager import get_or_create_mindmap_model
+    try:
+        from .note_manager import get_or_create_mindmap_model
+    except ImportError:
+        from note_manager import get_or_create_mindmap_model
     get_or_create_mindmap_model()
 
 gui_hooks.collection_did_load.append(on_collection_loaded)
@@ -70,7 +77,10 @@ def on_open_manager():
 
 def open_last_mindmap():
     """Open the last used mind map, or the first available one"""
-    from .mindmap_editor import MindMapDialog
+    try:
+        from .mindmap_editor import MindMapDialog
+    except ImportError:
+        from mindmap_editor import MindMapDialog
     
     # Get last used mind map ID from config
     config = mw.addonManager.getConfig(__name__)
@@ -106,7 +116,10 @@ action_usage = QAction("Usage Guide", mw)
 action_usage.triggered.connect(show_usage)
 
 action_backup = QAction("Backup & Recovery", mw)
-from .mindmap_backup import show_backup_dialog
+try:
+    from .mindmap_backup import show_backup_dialog
+except ImportError:
+    from mindmap_backup import show_backup_dialog
 action_backup.triggered.connect(show_backup_dialog)
 
 action_quick = QAction("Quick Open Mind Map", mw)
@@ -125,9 +138,15 @@ menu.addAction(action_backup)
 menu.addSeparator()
 menu.addAction(action_quick)
 
-from .card_linker import init_card_linker
+try:
+    from .card_linker import init_card_linker
+except ImportError:
+    from card_linker import init_card_linker
 init_card_linker()
 
 # Import review indicator for mind map associations
-from . import review_indicator
+try:
+    from . import review_indicator
+except ImportError:
+    import review_indicator
 
