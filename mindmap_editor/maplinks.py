@@ -2,12 +2,8 @@ import json
 import logging
 import uuid
 
-from .tree_utils import remove_node
-
-try:
-    from ..manager.transaction import collection_transaction
-except ImportError:  # When loaded as a top-level package (e.g., tests)
-    from manager.transaction import collection_transaction
+from ..core.tree_utils import remove_node
+from ..manager.transaction import collection_transaction
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +12,7 @@ def handle_get_editable_maps(dialog):
     """Get list of editable mind maps for the selection dialog, including linked status"""
     try:
         maps_list = []
-        try:
-            from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
-        except ImportError:
-            from card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
+        from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
         ids = dialog.mw.col.find_notes(MINDMAP_NOTE_TYPE_QUERY)
 
         # Get current linked maps from source root

@@ -131,7 +131,7 @@ def _clear_package_modules():
     # `from . import name` calls re-resolve through sys.modules.
     pkg = sys.modules.get(PACKAGE_NAME)
     if pkg is not None:
-        for attr in ("card_linker", "mindmap_opener"):
+        for attr in ("card_linker", "mindmap_editor"):
             if hasattr(pkg, attr):
                 delattr(pkg, attr)
 
@@ -304,16 +304,26 @@ class OnReviewerPycmdTests(unittest.TestCase):
 
     def _install_opener(self, side_effect=None):
         opened = []
-        mod = types.ModuleType(f"{PACKAGE_NAME}.mindmap_opener")
+        # Build mindmap_editor.opener as a stub so review_indicator's
+        # ``from .mindmap_editor.opener import open_mindmap`` resolves.
+        editor_pkg_name = f"{PACKAGE_NAME}.mindmap_editor"
+        editor_pkg = sys.modules.get(editor_pkg_name)
+        if editor_pkg is None:
+            editor_pkg = types.ModuleType(editor_pkg_name)
+            editor_pkg.__path__ = []
+            sys.modules[editor_pkg_name] = editor_pkg
+            sys.modules[PACKAGE_NAME].mindmap_editor = editor_pkg
+
+        opener_mod = types.ModuleType(f"{editor_pkg_name}.opener")
 
         def _open(mid, nid):
             opened.append((mid, nid))
             if side_effect is not None:
                 side_effect()
 
-        mod.open_mindmap = _open
-        sys.modules[f"{PACKAGE_NAME}.mindmap_opener"] = mod
-        sys.modules[PACKAGE_NAME].mindmap_opener = mod
+        opener_mod.open_mindmap = _open
+        sys.modules[f"{editor_pkg_name}.opener"] = opener_mod
+        editor_pkg.opener = opener_mod
         return opened
 
     def test_opens_with_mindmap_id_and_node_id(self):

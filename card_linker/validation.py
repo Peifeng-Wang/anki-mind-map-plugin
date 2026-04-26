@@ -6,7 +6,7 @@ from aqt import mw
 from .constants import MINDMAP_LINK_DIV_RE
 from .utils import parse_mindmap_link
 
-from ..mindmap_editor.tree_utils import traverse_nodes
+from ..core.tree_utils import traverse_nodes
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from .constants import DATA_NID_RE, LINK_HTML_TEMPLATE, _sync_flags
 from .mindmap_ops import find_parent_for_new_node, get_special_boundary_info
 from .utils import build_node_index, extract_first_line, find_node_by_id, get_root_node, parse_mindmap_link, select_link_field
 
-from ..mindmap_editor.tree_utils import remove_nodes_by_ids
+from ..core.tree_utils import remove_nodes_by_ids
 
 logger = logging.getLogger(__name__)
 

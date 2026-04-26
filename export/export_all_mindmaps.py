@@ -5,6 +5,7 @@ from aqt.qt import QFileDialog
 from .note_data import _build_mindmap_info
 from .file_io import _get_documents_path, _write_json_file, _copy_standalone_viewer
 from .error_utils import _print_export_failure
+from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
 
 
 def export_all_mindmaps(parent_widget, mw):
@@ -19,10 +20,6 @@ def export_all_mindmaps(parent_widget, mw):
         tuple: (success: bool, filename: str or None, viewer_path: str or None, count: int)
     """
     try:
-        try:
-            from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
-        except ImportError:
-            from card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
         # Find all mind map notes
         ids = mw.col.find_notes(MINDMAP_NOTE_TYPE_QUERY)
 

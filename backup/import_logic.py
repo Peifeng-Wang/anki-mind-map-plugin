@@ -9,11 +9,7 @@ from aqt.qt import QFileDialog
 from aqt.utils import showInfo, tooltip
 
 from .localization import IMPORT_SUFFIX, get_texts
-
-try:
-    from ..manager.transaction import collection_transaction
-except ImportError:  # When loaded as a top-level package (e.g., tests)
-    from manager.transaction import collection_transaction
+from ..manager.transaction import collection_transaction
 
 logger = logging.getLogger(__name__)
 

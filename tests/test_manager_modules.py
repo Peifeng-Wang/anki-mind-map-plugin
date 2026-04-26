@@ -224,6 +224,9 @@ def install_anki_stubs():
     qt.QTextBrowser = FakeWidget
     qt.QListWidget = FakeWidget
     qt.QFileDialog = FakeFileDialog
+    qt.QCursor = types.SimpleNamespace(pos=lambda: (0, 0))
+    qt.QMenu = type("QMenu", (), {"__init__": lambda self, *a, **kw: None})
+    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: None)
 
     utils = types.ModuleType("aqt.utils")
     utils.messages = []
@@ -466,12 +469,25 @@ class MindMapManagerFacadeTests(unittest.TestCase):
         mindmap_editor = types.ModuleType(f"{PACKAGE_NAME}.mindmap_editor")
         mindmap_editor.MindMapDialog = types.SimpleNamespace(open_instance=lambda *args: None)
         sys.modules[f"{PACKAGE_NAME}.mindmap_editor"] = mindmap_editor
-        note_manager = types.ModuleType(f"{PACKAGE_NAME}.note_manager")
-        note_manager.create_new_mindmap_note = lambda title, uid: 999
-        sys.modules[f"{PACKAGE_NAME}.note_manager"] = note_manager
-        export_utils = types.ModuleType(f"{PACKAGE_NAME}.export_utils")
-        export_utils.export_mindmap_to_json = lambda *args: (True, "/tmp/out.json", None)
-        sys.modules[f"{PACKAGE_NAME}.export_utils"] = export_utils
+
+        # Stub the notes subpackage so ``from .notes.creation import ...`` works.
+        notes_pkg = types.ModuleType(f"{PACKAGE_NAME}.notes")
+        notes_pkg.__path__ = []
+        sys.modules[f"{PACKAGE_NAME}.notes"] = notes_pkg
+        creation = types.ModuleType(f"{PACKAGE_NAME}.notes.creation")
+        creation.create_new_mindmap_note = lambda title, uid: 999
+        sys.modules[f"{PACKAGE_NAME}.notes.creation"] = creation
+        notes_pkg.creation = creation
+
+        # Stub export.export_mindmap (used inside MindMapManager methods).
+        export_pkg = types.ModuleType(f"{PACKAGE_NAME}.export")
+        export_pkg.__path__ = []
+        sys.modules[f"{PACKAGE_NAME}.export"] = export_pkg
+        export_mindmap = types.ModuleType(f"{PACKAGE_NAME}.export.export_mindmap")
+        export_mindmap.export_mindmap_to_json = lambda *args: (True, "/tmp/out.json", None)
+        sys.modules[f"{PACKAGE_NAME}.export.export_mindmap"] = export_mindmap
+        export_pkg.export_mindmap = export_mindmap
+
         self.mindmap_manager = import_plugin_module("mindmap_manager")
 
     def test_manager_delegates_to_note_utils(self):

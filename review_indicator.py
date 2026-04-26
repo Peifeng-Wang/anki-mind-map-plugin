@@ -54,8 +54,8 @@ def on_reviewer_pycmd(handled, cmd, _):
             node_id = parts[2] if len(parts) > 2 else None
 
             # Open mind map
-            from . import mindmap_opener
-            mindmap_opener.open_mindmap(mindmap_id, node_id)
+            from .mindmap_editor.opener import open_mindmap
+            open_mindmap(mindmap_id, node_id)
         except Exception:
             logger.exception("Error opening mindmap from reviewer")
         return (True, None)

@@ -1,6 +1,9 @@
+import importlib
 import json
 import sys
+import types
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Mock Anki/Qt before importing the module under test
@@ -14,14 +17,20 @@ sys.modules['aqt.qt'] = _mock_qt
 sys.modules['aqt.webview'] = _mock_webview
 sys.modules['aqt.utils'] = _mock_utils
 
-from mindmap_editor.cleanup import (
-    cleanup_orphaned_links,
-    clean_orphaned_card_links,
-    find_orphaned_node_ids,
-    remove_note_ids_from_nodes,
-    delete_orphaned_nodes_from_data,
-    _ORPHANED_LINK_RE,
-)
+ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_NAME = "mindmap_plugin_under_test"
+if PACKAGE_NAME not in sys.modules:
+    pkg = types.ModuleType(PACKAGE_NAME)
+    pkg.__path__ = [str(ROOT)]
+    sys.modules[PACKAGE_NAME] = pkg
+
+cleanup = importlib.import_module(f"{PACKAGE_NAME}.mindmap_editor.cleanup")
+cleanup_orphaned_links = cleanup.cleanup_orphaned_links
+clean_orphaned_card_links = cleanup.clean_orphaned_card_links
+find_orphaned_node_ids = cleanup.find_orphaned_node_ids
+remove_note_ids_from_nodes = cleanup.remove_note_ids_from_nodes
+delete_orphaned_nodes_from_data = cleanup.delete_orphaned_nodes_from_data
+_ORPHANED_LINK_RE = cleanup._ORPHANED_LINK_RE
 
 
 class FakeNote:

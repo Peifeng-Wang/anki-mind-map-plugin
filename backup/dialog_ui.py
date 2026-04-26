@@ -112,7 +112,7 @@ class MindMapBackupDialog(QDialog):
 
     def export_all_mindmaps(self):
         """Export all mind maps to a single JSON file."""
-        from ..export_utils import export_all_mindmaps
+        from ..export.export_all_mindmaps import export_all_mindmaps
 
         success, filename, viewer_path, count = export_all_mindmaps(self, self.mw)
 
@@ -126,7 +126,7 @@ class MindMapBackupDialog(QDialog):
     def export_selected(self):
         """Export a specific mind map."""
         try:
-            from ..export_utils import export_mindmap_to_json
+            from ..export.export_mindmap import export_mindmap_to_json
             from ..mindmap_manager import MindMapManager
 
             manager = MindMapManager(self.mw)
@@ -153,7 +153,7 @@ class MindMapBackupDialog(QDialog):
 
     def import_mindmaps(self):
         """Import mind maps from a backup file."""
-        from ..note_manager import get_or_create_mindmap_model
+        from ..notes.model import get_or_create_mindmap_model
 
         def _format_import_preview(imported_count):
             return f"""

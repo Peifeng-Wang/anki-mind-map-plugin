@@ -1,12 +1,13 @@
+"""Mind map note creation helpers.
+
+Lives next to ``notes.model`` so callers can import note creation directly
+without going through a top-level facade module.
+"""
 import json
-from aqt import mw
+
 from anki.models import NotetypeDict
 
-from .notes.config import (
-    ALLOW_NEW_CARDS_MIGRATION_MESSAGE,
-    CARD_TEMPLATE_AFMT,
-    CARD_TEMPLATE_NAME,
-    CARD_TEMPLATE_QFMT,
+from .config import (
     DEFAULT_ALLOW_NEW_CARDS,
     DEFAULT_DECK_ID,
     FIELD_ALLOW_NEW_CARDS,
@@ -14,22 +15,14 @@ from .notes.config import (
     FIELD_DISPLAY_HTML,
     FIELD_TITLE,
     FIELD_UUID,
-    MODEL_FIELDS,
-    MODEL_NAME,
 )
-from .notes.model import (
-    _create_mindmap_model,
-    _ensure_mindmap_model_schema,
-    _get_or_create_mindmap_model,
-    _model_has_field,
-    get_or_create_mindmap_model,
-)
+from .model import _get_or_create_mindmap_model
 
 
 def create_new_mindmap_note(title: str, uuid_str: str) -> int:
-    """
-    Creates a new MindMap note and returns its ID.
-    """
+    """Create a new MindMap note in the active collection and return its ID."""
+    from aqt import mw
+
     return _create_new_mindmap_note(mw.col, title, uuid_str)
 
 

@@ -216,6 +216,9 @@ def install_anki_stubs():
     qt.QTextBrowser = FakeWidget
     qt.QListWidget = FakeWidget
     qt.QFileDialog = FakeFileDialog
+    qt.QCursor = types.SimpleNamespace(pos=lambda: (0, 0))
+    qt.QMenu = type("QMenu", (), {"__init__": lambda self, *a, **kw: None})
+    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: None)
 
     utils = types.ModuleType("aqt.utils")
     utils.messages = []
@@ -523,9 +526,18 @@ class TestReviewIndicatorFacade(unittest.TestCase):
         ri = import_plugin_module("review_indicator")
         opened = []
 
-        mindmap_opener = types.ModuleType(f"{PACKAGE_NAME}.mindmap_opener")
-        mindmap_opener.open_mindmap = lambda mid, nid: opened.append((mid, nid))
-        sys.modules[f"{PACKAGE_NAME}.mindmap_opener"] = mindmap_opener
+        editor_pkg_name = f"{PACKAGE_NAME}.mindmap_editor"
+        editor_pkg = sys.modules.get(editor_pkg_name)
+        if editor_pkg is None:
+            editor_pkg = types.ModuleType(editor_pkg_name)
+            editor_pkg.__path__ = []
+            sys.modules[editor_pkg_name] = editor_pkg
+            sys.modules[PACKAGE_NAME].mindmap_editor = editor_pkg
+
+        opener_mod = types.ModuleType(f"{editor_pkg_name}.opener")
+        opener_mod.open_mindmap = lambda mid, nid: opened.append((mid, nid))
+        sys.modules[f"{editor_pkg_name}.opener"] = opener_mod
+        editor_pkg.opener = opener_mod
 
         result = ri.on_reviewer_pycmd((False, None), "open_mindmap:7:node:3", None)
         self.assertEqual(result, (True, None))

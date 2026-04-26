@@ -1,6 +1,6 @@
 from aqt.qt import *
 from aqt.utils import showInfo, getText, askUser, tooltip
-from .note_manager import create_new_mindmap_note
+from .notes.creation import create_new_mindmap_note
 from .mindmap_editor import MindMapDialog
 import json
 import os
@@ -214,7 +214,7 @@ class MindMapManager(QDialog):
             return
 
         # Use unified export function
-        from .export_utils import export_mindmap_to_json
+        from .export.export_mindmap import export_mindmap_to_json
 
         note = self.mw.col.get_note(nid)
         title = self._get_note_title(note)

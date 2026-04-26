@@ -1,6 +1,9 @@
+import importlib
 import json
 import sys
+import types
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Mock Anki/Qt before importing the module under test
@@ -14,13 +17,19 @@ sys.modules['aqt.qt'] = _mock_qt
 sys.modules['aqt.webview'] = _mock_webview
 sys.modules['aqt.utils'] = _mock_utils
 
-from mindmap_editor.maplinks import (
-    handle_get_editable_maps,
-    handle_create_map_link,
-    handle_jump_to_map,
-    handle_delete_map_link,
-    handle_unlink_map,
-)
+ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_NAME = "mindmap_plugin_under_test"
+if PACKAGE_NAME not in sys.modules:
+    pkg = types.ModuleType(PACKAGE_NAME)
+    pkg.__path__ = [str(ROOT)]
+    sys.modules[PACKAGE_NAME] = pkg
+
+maplinks = importlib.import_module(f"{PACKAGE_NAME}.mindmap_editor.maplinks")
+handle_get_editable_maps = maplinks.handle_get_editable_maps
+handle_create_map_link = maplinks.handle_create_map_link
+handle_jump_to_map = maplinks.handle_jump_to_map
+handle_delete_map_link = maplinks.handle_delete_map_link
+handle_unlink_map = maplinks.handle_unlink_map
 
 
 class FakeNote:
@@ -114,10 +123,21 @@ class TestHandleJumpToMap(unittest.TestCase):
         self.dialog.mw = MagicMock()
         self.dialog.note_id = 1
 
-    @patch('mindmap_editor.main_dialog.MindMapDialog')
-    def test_jump_to_map(self, mock_cls):
-        handle_jump_to_map(self.dialog, json.dumps({"targetMapId": 2, "focusNodeId": "n1"}))
-        mock_cls.open_instance.assert_called_once_with(self.dialog.mw, 2, "n1")
+    def test_jump_to_map(self):
+        # Restore broad aqt mocks in case earlier tests replaced them with
+        # narrower stubs that lack symbols main_dialog needs at import time.
+        sys.modules['aqt'] = MagicMock()
+        sys.modules['aqt.qt'] = MagicMock()
+        sys.modules['aqt.webview'] = MagicMock()
+        sys.modules['aqt.utils'] = MagicMock()
+        sys.modules.pop(f"{PACKAGE_NAME}.mindmap_editor", None)
+        sys.modules.pop(f"{PACKAGE_NAME}.mindmap_editor.maplinks", None)
+        sys.modules.pop(f"{PACKAGE_NAME}.mindmap_editor.main_dialog", None)
+        maplinks_mod = importlib.import_module(f"{PACKAGE_NAME}.mindmap_editor.maplinks")
+        main_dialog_mod = importlib.import_module(f"{PACKAGE_NAME}.mindmap_editor.main_dialog")
+        with patch.object(main_dialog_mod, 'MindMapDialog') as mock_cls:
+            maplinks_mod.handle_jump_to_map(self.dialog, json.dumps({"targetMapId": 2, "focusNodeId": "n1"}))
+            mock_cls.open_instance.assert_called_once_with(self.dialog.mw, 2, "n1")
 
 
 if __name__ == '__main__':

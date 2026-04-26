@@ -2,7 +2,7 @@ import json
 import logging
 import re
 
-from .tree_utils import traverse_nodes, collect_node_info, remove_nodes_by_ids
+from ..core.tree_utils import traverse_nodes, collect_node_info, remove_nodes_by_ids
 
 logger = logging.getLogger(__name__)
 

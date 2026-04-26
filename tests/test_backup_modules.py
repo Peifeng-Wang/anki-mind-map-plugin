@@ -216,6 +216,9 @@ def install_anki_stubs():
     qt.QTextBrowser = FakeWidget
     qt.QListWidget = FakeWidget
     qt.QFileDialog = FakeFileDialog
+    qt.QCursor = types.SimpleNamespace(pos=lambda: (0, 0))
+    qt.QMenu = type("QMenu", (), {"__init__": lambda self, *a, **kw: None})
+    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: None)
 
     utils = types.ModuleType("aqt.utils")
     utils.messages = []
@@ -452,43 +455,6 @@ class BackupModuleTests(unittest.TestCase):
         dui = import_plugin_module("backup.dialog_ui")
         self.assertIn("#4CAF50", dui.BUTTON_ACTIVE_STYLE)
         self.assertIn("#28a745", dui.EXPORT_ALL_STYLE)
-
-    # ------------------------------------------------------------------
-    # mindmap_backup.py facade
-    # ------------------------------------------------------------------
-    def test_facade_reexports(self):
-        facade = import_plugin_module("mindmap_backup")
-        self.assertTrue(hasattr(facade, "MindMapBackupDialog"))
-        self.assertTrue(hasattr(facade, "show_backup_dialog"))
-        self.assertTrue(hasattr(facade, "_extract_mindmaps"))
-        self.assertTrue(hasattr(facade, "_import_one_mindmap"))
-        self.assertTrue(hasattr(facade, "_format_export_selected_preview"))
-
-    def test_facade_backwards_compat(self):
-        """Existing test contract from python_refactor_tests.py."""
-        note_manager = import_plugin_module("note_manager")
-        backup = import_plugin_module("mindmap_backup")
-        model = {"name": "MindMap Master", "flds": [], "tmpls": []}
-        note_manager.get_or_create_mindmap_model = lambda: model
-        self.mw.col = FakeCollection()
-
-        dialog = backup.MindMapBackupDialog(self.mw)
-        self.assertEqual(dialog._extract_mindmaps({"mindmaps": [{"title": "A"}]}), [{"title": "A"}])
-        self.assertEqual(dialog._extract_mindmaps({"title": "Single"}), [{"title": "Single"}])
-        self.assertEqual(dialog._extract_mindmaps([]), [])
-
-        backup._import_one_mindmap(
-            self.mw,
-            {"title": "Imported", "uuid": "u", "data": {"data": {}}, "allow_new_cards": "0"},
-            model,
-        )
-        added = self.mw.col.added_notes[-1]
-        self.assertEqual(added["Title"], "Imported (导入)")
-        self.assertEqual(added["AllowNewCards"], "0")
-        self.assertEqual(added.deck_id, 0)
-
-        preview = backup._format_export_selected_preview("<bad>.json", None, "<script>")
-        self.assertIn("&lt;script&gt;", preview)
 
 
 if __name__ == "__main__":

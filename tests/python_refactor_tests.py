@@ -266,15 +266,17 @@ class PythonRefactorTests(unittest.TestCase):
                 sys.modules.pop(key)
 
     def test_note_manager_model_creation_and_note_payload(self):
-        note_manager = import_plugin_module("note_manager")
+        model_module = import_plugin_module("notes.model")
+        creation = import_plugin_module("notes.creation")
+        config = import_plugin_module("notes.config")
         col = FakeCollection(models=FakeModels())
 
-        model = note_manager._get_or_create_mindmap_model(col)
-        self.assertEqual([field["name"] for field in model["flds"]], list(note_manager.MODEL_FIELDS))
+        model = model_module._get_or_create_mindmap_model(col)
+        self.assertEqual([field["name"] for field in model["flds"]], list(config.MODEL_FIELDS))
         self.assertEqual(model["tmpls"][0]["name"], "Card 1")
         self.assertEqual(model["tmpls"][0]["qfmt"], "{{Title}}<br>{{DisplayHTML}}")
 
-        note_id = note_manager._create_new_mindmap_note(col, "Map A", "uuid-1")
+        note_id = creation._create_new_mindmap_note(col, "Map A", "uuid-1")
         self.assertEqual(note_id, 999)
         added = col.added_notes[-1]
         self.assertEqual(added["Title"], "Map A")
@@ -286,25 +288,26 @@ class PythonRefactorTests(unittest.TestCase):
         self.assertEqual(data["data"]["id"], "root")
 
     def test_note_manager_existing_model_migration(self):
-        note_manager = import_plugin_module("note_manager")
+        model_module = import_plugin_module("notes.model")
         existing = {"name": "MindMap Master", "flds": [{"name": "Title"}], "tmpls": []}
         models = FakeModels(existing=existing)
         col = FakeCollection(models=models)
 
-        model = note_manager._get_or_create_mindmap_model(col)
+        model = model_module._get_or_create_mindmap_model(col)
         self.assertIs(model, existing)
         self.assertIn({"name": "AllowNewCards"}, existing["flds"])
         self.assertEqual(models.saved, [existing])
 
     def test_export_utils_single_and_all_export(self):
-        export_utils = import_plugin_module("export_utils")
+        export_mindmap = import_plugin_module("export.export_mindmap")
+        export_all = import_plugin_module("export.export_all_mindmaps")
         note = FakeNote(1, Title="Map A", UUID="u1", Data=json.dumps({"data": {"id": "root"}}))
         self.mw.col = FakeCollection(notes={1: note})
 
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, "single.json")
             FakeFileDialog.save_filename = filename
-            success, saved, viewer = export_utils.export_mindmap_to_json(None, self.mw, 1)
+            success, saved, viewer = export_mindmap.export_mindmap_to_json(None, self.mw, 1)
             self.assertTrue(success)
             self.assertEqual(saved, filename)
             self.assertEqual(viewer, os.path.join(tmpdir, "MindMap_Viewer.html"))
@@ -316,7 +319,7 @@ class PythonRefactorTests(unittest.TestCase):
 
             filename_all = os.path.join(tmpdir, "all.json")
             FakeFileDialog.save_filename = filename_all
-            success, saved, viewer, count = export_utils.export_all_mindmaps(None, self.mw)
+            success, saved, viewer, count = export_all.export_all_mindmaps(None, self.mw)
             self.assertTrue(success)
             self.assertEqual(count, 1)
             with open(saved, encoding="utf-8") as f:
@@ -379,10 +382,12 @@ class PythonRefactorTests(unittest.TestCase):
         self.assertEqual(data["data"]["children"], [{"id": "keep"}])
 
     def test_backup_dialog_extract_import_and_preview_escaping(self):
-        note_manager = import_plugin_module("note_manager")
-        backup = import_plugin_module("mindmap_backup")
+        model_module = import_plugin_module("notes.model")
+        backup = import_plugin_module("backup.dialog_ui")
+        from_extract = import_plugin_module("backup.import_logic")
+        from_preview = import_plugin_module("backup.export_preview")
         model = {"name": "MindMap Master", "flds": [], "tmpls": []}
-        note_manager.get_or_create_mindmap_model = lambda: model
+        model_module.get_or_create_mindmap_model = lambda: model
         self.mw.col = FakeCollection()
 
         dialog = backup.MindMapBackupDialog(self.mw)
@@ -390,7 +395,8 @@ class PythonRefactorTests(unittest.TestCase):
         self.assertEqual(dialog._extract_mindmaps({"title": "Single"}), [{"title": "Single"}])
         self.assertEqual(dialog._extract_mindmaps([]), [])
 
-        dialog._import_one_mindmap(
+        from_extract._import_one_mindmap(
+            self.mw,
             {"title": "Imported", "uuid": "u", "data": {"data": {}}, "allow_new_cards": "0"},
             model,
         )
@@ -399,7 +405,7 @@ class PythonRefactorTests(unittest.TestCase):
         self.assertEqual(added["AllowNewCards"], "0")
         self.assertEqual(added.deck_id, 0)
 
-        preview = dialog._format_export_selected_preview("<bad>.json", None, "<script>")
+        preview = from_preview._format_export_selected_preview("<bad>.json", None, "<script>")
         self.assertIn("&lt;script&gt;", preview)
 
     def test_usage_guide_language_and_content_contract(self):

@@ -215,6 +215,9 @@ def install_anki_stubs():
     qt.QTextBrowser = FakeWidget
     qt.QListWidget = FakeWidget
     qt.QFileDialog = FakeFileDialog
+    qt.QCursor = types.SimpleNamespace(pos=lambda: (0, 0))
+    qt.QMenu = type("QMenu", (), {"__init__": lambda self, *a, **kw: None})
+    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: None)
 
     utils = types.ModuleType("aqt.utils")
     utils.messages = []
@@ -391,41 +394,40 @@ class TestNoteManagerFacade(unittest.TestCase):
                 sys.modules.pop(key)
 
     def test_constants_re_exported(self):
-        note_manager = import_plugin_module("note_manager")
-        self.assertEqual(note_manager.MODEL_NAME, "MindMap Master")
-        self.assertEqual(note_manager.FIELD_TITLE, "Title")
-        self.assertEqual(note_manager.FIELD_DATA, "Data")
-        self.assertEqual(note_manager.FIELD_DISPLAY_HTML, "DisplayHTML")
-        self.assertEqual(note_manager.FIELD_UUID, "UUID")
-        self.assertEqual(note_manager.FIELD_ALLOW_NEW_CARDS, "AllowNewCards")
+        config = import_plugin_module("notes.config")
+        self.assertEqual(config.MODEL_NAME, "MindMap Master")
+        self.assertEqual(config.FIELD_TITLE, "Title")
+        self.assertEqual(config.FIELD_DATA, "Data")
+        self.assertEqual(config.FIELD_DISPLAY_HTML, "DisplayHTML")
+        self.assertEqual(config.FIELD_UUID, "UUID")
+        self.assertEqual(config.FIELD_ALLOW_NEW_CARDS, "AllowNewCards")
         self.assertEqual(
-            note_manager.MODEL_FIELDS,
+            config.MODEL_FIELDS,
             ("Title", "Data", "DisplayHTML", "UUID", "AllowNewCards"),
         )
-        self.assertEqual(note_manager.CARD_TEMPLATE_NAME, "Card 1")
-        self.assertEqual(note_manager.CARD_TEMPLATE_QFMT, "{{Title}}<br>{{DisplayHTML}}")
-        self.assertEqual(note_manager.CARD_TEMPLATE_AFMT, "{{FrontSide}}")
-        self.assertEqual(note_manager.DEFAULT_ALLOW_NEW_CARDS, "1")
-        self.assertEqual(note_manager.DEFAULT_DECK_ID, 0)
+        self.assertEqual(config.CARD_TEMPLATE_NAME, "Card 1")
+        self.assertEqual(config.CARD_TEMPLATE_QFMT, "{{Title}}<br>{{DisplayHTML}}")
+        self.assertEqual(config.CARD_TEMPLATE_AFMT, "{{FrontSide}}")
+        self.assertEqual(config.DEFAULT_ALLOW_NEW_CARDS, "1")
+        self.assertEqual(config.DEFAULT_DECK_ID, 0)
         self.assertEqual(
-            note_manager.ALLOW_NEW_CARDS_MIGRATION_MESSAGE,
+            config.ALLOW_NEW_CARDS_MIGRATION_MESSAGE,
             "Added AllowNewCards field to existing MindMap Master model",
         )
 
     def test_model_functions_re_exported(self):
-        note_manager = import_plugin_module("note_manager")
-        expected_model_module = import_plugin_module("notes.model")
-        self.assertEqual(note_manager.get_or_create_mindmap_model.__name__, expected_model_module.get_or_create_mindmap_model.__name__)
-        self.assertEqual(note_manager._get_or_create_mindmap_model.__name__, expected_model_module._get_or_create_mindmap_model.__name__)
-        self.assertEqual(note_manager._ensure_mindmap_model_schema.__name__, expected_model_module._ensure_mindmap_model_schema.__name__)
-        self.assertEqual(note_manager._model_has_field.__name__, expected_model_module._model_has_field.__name__)
-        self.assertEqual(note_manager._create_mindmap_model.__name__, expected_model_module._create_mindmap_model.__name__)
+        model_module = import_plugin_module("notes.model")
+        self.assertTrue(hasattr(model_module, "get_or_create_mindmap_model"))
+        self.assertTrue(hasattr(model_module, "_get_or_create_mindmap_model"))
+        self.assertTrue(hasattr(model_module, "_ensure_mindmap_model_schema"))
+        self.assertTrue(hasattr(model_module, "_model_has_field"))
+        self.assertTrue(hasattr(model_module, "_create_mindmap_model"))
 
     def test_create_new_mindmap_note(self):
-        note_manager = import_plugin_module("note_manager")
+        creation = import_plugin_module("notes.creation")
         col = FakeCollection(models=FakeModels())
 
-        note_id = note_manager._create_new_mindmap_note(col, "Map A", "uuid-1")
+        note_id = creation._create_new_mindmap_note(col, "Map A", "uuid-1")
         self.assertEqual(note_id, 999)
         added = col.added_notes[-1]
         self.assertEqual(added["Title"], "Map A")
@@ -438,20 +440,20 @@ class TestNoteManagerFacade(unittest.TestCase):
         self.assertEqual(added["DisplayHTML"], "<h1>Map A</h1><p>(Open MindMap Editor to view)</p>")
 
     def test_create_new_mindmap_note_with_model(self):
-        note_manager = import_plugin_module("note_manager")
+        creation = import_plugin_module("notes.creation")
         col = FakeCollection(models=FakeModels())
         model = col.models.new("MindMap Master")
 
-        note_id = note_manager._create_new_mindmap_note_with_model(col, model, "Map B", "uuid-2")
+        note_id = creation._create_new_mindmap_note_with_model(col, model, "Map B", "uuid-2")
         self.assertEqual(note_id, 999)
         added = col.added_notes[-1]
         self.assertEqual(added["Title"], "Map B")
         self.assertEqual(added["UUID"], "uuid-2")
 
     def test_populate_mindmap_note_fields(self):
-        note_manager = import_plugin_module("note_manager")
+        creation = import_plugin_module("notes.creation")
         note = FakeNote(0)
-        note_manager._populate_mindmap_note_fields(note, "Map C", "uuid-3")
+        creation._populate_mindmap_note_fields(note, "Map C", "uuid-3")
         self.assertEqual(note["Title"], "Map C")
         self.assertEqual(note["UUID"], "uuid-3")
         self.assertEqual(note["AllowNewCards"], "1")
@@ -461,8 +463,8 @@ class TestNoteManagerFacade(unittest.TestCase):
         self.assertEqual(note["DisplayHTML"], "<h1>Map C</h1><p>(Open MindMap Editor to view)</p>")
 
     def test_build_initial_mindmap_data(self):
-        note_manager = import_plugin_module("note_manager")
-        data = note_manager._build_initial_mindmap_data("My Map")
+        creation = import_plugin_module("notes.creation")
+        data = creation._build_initial_mindmap_data("My Map")
         self.assertEqual(data["meta"]["name"], "My Map")
         self.assertEqual(data["meta"]["author"], "anki")
         self.assertEqual(data["meta"]["version"], "0.2")
@@ -471,8 +473,8 @@ class TestNoteManagerFacade(unittest.TestCase):
         self.assertEqual(data["data"]["topic"], "My Map")
 
     def test_build_display_html(self):
-        note_manager = import_plugin_module("note_manager")
-        html = note_manager._build_display_html("Test Title")
+        creation = import_plugin_module("notes.creation")
+        html = creation._build_display_html("Test Title")
         self.assertEqual(html, "<h1>Test Title</h1><p>(Open MindMap Editor to view)</p>")
 
 

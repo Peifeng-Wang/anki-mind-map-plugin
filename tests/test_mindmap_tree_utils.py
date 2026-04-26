@@ -26,7 +26,7 @@ _mock_qt.QHBoxLayout = MagicMock
 _mock_qt.QToolButton = MagicMock
 _mock_qt.QDialog.__name__ = 'QDialog'
 
-from mindmap_editor.tree_utils import (
+from core.tree_utils import (
     traverse_nodes, find_node, remove_node, update_node, collect_node_info
 )
 

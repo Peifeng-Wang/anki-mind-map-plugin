@@ -2,7 +2,7 @@ import json
 import logging
 import re
 
-from .tree_utils import traverse_nodes, find_node
+from ..core.tree_utils import traverse_nodes, find_node
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +13,7 @@ _HTML_TAG_RE = re.compile(r'<[^<]+?>')
 def sync_nodes_to_cards(dialog, changed_nodes):
     """Sync changed node content to linked cards"""
     # Import cycle prevention flag
-    try:
-        from .. import card_linker
-    except ImportError:
-        import card_linker
+    from .. import card_linker
 
     for node_info in changed_nodes:
         node_id = node_info.get('id')

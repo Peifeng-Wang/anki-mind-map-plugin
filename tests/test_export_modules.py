@@ -218,6 +218,9 @@ def install_anki_stubs():
     qt.QTextBrowser = FakeWidget
     qt.QListWidget = FakeWidget
     qt.QFileDialog = FakeFileDialog
+    qt.QCursor = types.SimpleNamespace(pos=lambda: (0, 0))
+    qt.QMenu = type("QMenu", (), {"__init__": lambda self, *a, **kw: None})
+    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: None)
 
     utils = types.ModuleType("aqt.utils")
     utils.messages = []
@@ -569,59 +572,6 @@ class TestExportModules(unittest.TestCase):
         self.assertIsNone(saved)
         self.assertIsNone(viewer)
         self.assertEqual(count, 0)
-
-    # ------------------------------------------------------------------
-    # export_utils facade backward compatibility
-    # ------------------------------------------------------------------
-    def test_facade_re_exports(self):
-        export_utils = import_plugin_module("export_utils")
-        self.assertTrue(hasattr(export_utils, "_get_optional_note_field"))
-        self.assertTrue(hasattr(export_utils, "_get_note_data"))
-        self.assertTrue(hasattr(export_utils, "_build_mindmap_info"))
-        self.assertTrue(hasattr(export_utils, "_get_documents_path"))
-        self.assertTrue(hasattr(export_utils, "_write_json_file"))
-        self.assertTrue(hasattr(export_utils, "_viewer_copy_is_current"))
-        self.assertTrue(hasattr(export_utils, "_copy_standalone_viewer"))
-        self.assertTrue(hasattr(export_utils, "_print_export_failure"))
-        self.assertTrue(hasattr(export_utils, "export_mindmap_to_json"))
-        self.assertTrue(hasattr(export_utils, "export_all_mindmaps"))
-
-    def test_facade_single_and_all_export(self):
-        export_utils = import_plugin_module("export_utils")
-        note = FakeNote(1, Title="Map A", UUID="u1", Data=json.dumps({"data": {"id": "root"}}), AllowNewCards="1")
-        self.mw.col = FakeCollection(notes={1: note})
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            web_dir = os.path.join(tmpdir, "web")
-            os.makedirs(web_dir)
-            with open(os.path.join(web_dir, "standalone_viewer.html"), "w", encoding="utf-8") as f:
-                f.write("<html></html>")
-
-            filename = os.path.join(tmpdir, "single.json")
-            FakeFileDialog.save_filename = filename
-            orig_file = export_utils.__file__
-            try:
-                export_utils.__file__ = os.path.join(tmpdir, "export_utils.py")
-                success, saved, viewer = export_utils.export_mindmap_to_json(None, self.mw, 1)
-                self.assertTrue(success)
-                self.assertEqual(saved, filename)
-                self.assertEqual(viewer, os.path.join(tmpdir, "MindMap_Viewer.html"))
-                self.assertTrue(os.path.exists(viewer))
-                with open(filename, encoding="utf-8") as f:
-                    payload = json.load(f)
-                self.assertEqual(payload["title"], "Map A")
-                self.assertEqual(payload["allow_new_cards"], "1")
-
-                filename_all = os.path.join(tmpdir, "all.json")
-                FakeFileDialog.save_filename = filename_all
-                success, saved, viewer, count = export_utils.export_all_mindmaps(None, self.mw)
-                self.assertTrue(success)
-                self.assertEqual(count, 1)
-                with open(saved, encoding="utf-8") as f:
-                    payload = json.load(f)
-                self.assertEqual(payload["mindmaps"][0]["note_id"], 1)
-            finally:
-                export_utils.__file__ = orig_file
 
 
 if __name__ == "__main__":

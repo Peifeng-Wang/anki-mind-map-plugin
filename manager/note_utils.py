@@ -1,9 +1,6 @@
 import json
 
-try:
-    from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
-except ImportError:  # When loaded as a top-level package (e.g., tests)
-    from card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
+from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
 
 
 FIELD_TITLE = 'Title'
