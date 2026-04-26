@@ -3,9 +3,6 @@ import json
 import logging
 import os
 
-from aqt.qt import QUrl
-from aqt.webview import AnkiWebView
-
 logger = logging.getLogger(__name__)
 
 # ---------- Asset caches ----------
@@ -184,7 +181,7 @@ def build_editor_html(dialog, config, data_json, focus_node_id):
         <script>
         {mathjax_config_js}
         </script>
-        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+        <script src="vendor/mathjax/es5/tex-svg.js" async></script>
         <script>
         {dompurify_js}
         </script>

@@ -62,6 +62,7 @@ def install_aqt_stub(
     utils_factory: Optional[Any] = None,
     install_anki: bool = True,
     include_input_helpers: bool = True,
+    install_webview: bool = True,
 ) -> tuple:
     """Install a canonical ``aqt`` stub into ``sys.modules`` and return
     ``(aqt, qt, utils, hooks)``.
@@ -155,6 +156,17 @@ def install_aqt_stub(
     sys.modules["aqt"] = aqt
     sys.modules["aqt.qt"] = qt
     sys.modules["aqt.utils"] = utils
+
+    if install_webview:
+        webview = types.ModuleType("aqt.webview")
+
+        class _AnkiWebViewStub:
+            def __init__(self, *args, **kwargs):
+                pass
+
+        webview.AnkiWebView = _AnkiWebViewStub
+        aqt.webview = webview
+        sys.modules["aqt.webview"] = webview
 
     if install_anki:
         anki = types.ModuleType("anki")

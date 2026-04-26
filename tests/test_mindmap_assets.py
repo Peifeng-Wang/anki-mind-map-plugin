@@ -3,16 +3,10 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch, mock_open
 
-# Mock Anki/Qt before importing the module under test
-_mock_aqt = MagicMock()
-_mock_qt = MagicMock()
-_mock_webview = MagicMock()
-_mock_utils = MagicMock()
+from _aqt_stub import install_aqt_stub
 
-sys.modules['aqt'] = _mock_aqt
-sys.modules['aqt.qt'] = _mock_qt
-sys.modules['aqt.webview'] = _mock_webview
-sys.modules['aqt.utils'] = _mock_utils
+# Mock Anki/Qt before importing the module under test
+install_aqt_stub(fake_mw=MagicMock())
 
 from mindmap_editor import assets
 

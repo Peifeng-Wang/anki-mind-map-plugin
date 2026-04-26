@@ -524,4 +524,24 @@ test('DOMPurify is vendored and wired into the rich-text topic render path', () 
     'floating_nodes.js should keep escapeHtml for plain-text topics');
 });
 
+test('MathJax is vendored locally and assets.py references the local path', () => {
+  const mathjaxPath = 'web/vendor/mathjax/es5/tex-svg.js';
+  assert.ok(fs.existsSync(file(mathjaxPath)), 'MathJax vendor file missing');
+
+  const mathjax = read(mathjaxPath);
+  const sizeKb = Buffer.byteLength(mathjax, 'utf8') / 1024;
+  assert.ok(sizeKb > 1500 && sizeKb < 2500,
+    `MathJax bundle size out of expected range, got ${sizeKb.toFixed(1)} KB`);
+  assert.ok(mathjax.includes('MathJax'), 'MathJax file should contain the MathJax identifier');
+
+  // Syntax sanity: make sure it parses so we don't ship a broken file.
+  execFileSync(process.execPath, ['--check', file(mathjaxPath)], { stdio: 'pipe' });
+
+  const assets = read('mindmap_editor/assets.py');
+  assert.ok(assets.includes('vendor/mathjax/es5/tex-svg.js'),
+    'assets.py should reference the local MathJax path');
+  assert.ok(!assets.includes('cdn.jsdelivr.net/npm/mathjax'),
+    'assets.py should no longer use the CDN MathJax URL');
+});
+
 console.log('All refactor regression tests passed.');

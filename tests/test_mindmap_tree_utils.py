@@ -3,28 +3,10 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch, PropertyMock
 
+from _aqt_stub import install_aqt_stub
+
 # Mock Anki/Qt before importing the module under test
-_mock_aqt = MagicMock()
-_mock_qt = MagicMock()
-_mock_webview = MagicMock()
-_mock_utils = MagicMock()
-
-sys.modules['aqt'] = _mock_aqt
-sys.modules['aqt.qt'] = _mock_qt
-sys.modules['aqt.webview'] = _mock_webview
-sys.modules['aqt.utils'] = _mock_utils
-
-# Provide common Qt names used by the module
-_mock_qt.QDialog = MagicMock
-_mock_qt.QVBoxLayout = MagicMock
-_mock_qt.QShortcut = MagicMock
-_mock_qt.QKeySequence = MagicMock
-_mock_qt.QUrl = MagicMock
-_mock_qt.Qt = MagicMock()
-_mock_qt.QWidget = MagicMock
-_mock_qt.QHBoxLayout = MagicMock
-_mock_qt.QToolButton = MagicMock
-_mock_qt.QDialog.__name__ = 'QDialog'
+install_aqt_stub(fake_mw=MagicMock())
 
 from core.tree_utils import (
     traverse_nodes, find_node, remove_node, update_node, collect_node_info

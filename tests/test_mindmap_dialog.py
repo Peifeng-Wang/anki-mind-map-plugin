@@ -3,28 +3,23 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
-# Mock Anki/Qt before importing the module under test
-_mock_aqt = MagicMock()
-_mock_qt = MagicMock()
-_mock_webview = MagicMock()
-_mock_utils = MagicMock()
+from _aqt_stub import install_aqt_stub
 
-sys.modules['aqt'] = _mock_aqt
-sys.modules['aqt.qt'] = _mock_qt
-sys.modules['aqt.webview'] = _mock_webview
-sys.modules['aqt.utils'] = _mock_utils
-
-# Provide common Qt names used by the module
-_mock_qt.QDialog = MagicMock
-_mock_qt.QVBoxLayout = MagicMock
-_mock_qt.QShortcut = MagicMock
-_mock_qt.QKeySequence = MagicMock
-_mock_qt.QUrl = MagicMock
-_mock_qt.Qt = MagicMock()
-_mock_qt.QWidget = MagicMock
-_mock_qt.QHBoxLayout = MagicMock
-_mock_qt.QToolButton = MagicMock
-_mock_qt.QDialog.__name__ = 'QDialog'
+# Mock Anki/Qt before importing the module under test. main_dialog imports
+# QDialog/QVBoxLayout/QShortcut/QKeySequence/QUrl/Qt/QWidget/QHBoxLayout/QToolButton.
+_, _qt, _, _ = install_aqt_stub(
+    fake_mw=MagicMock(),
+    widget_factory=MagicMock,
+    extra_qt_names={
+        "QShortcut": MagicMock,
+        "QKeySequence": MagicMock,
+        "QUrl": MagicMock,
+        "Qt": MagicMock(),
+        "QWidget": MagicMock,
+        "QToolButton": MagicMock,
+    },
+)
+_qt.QDialog.__name__ = 'QDialog'
 
 from mindmap_editor.main_dialog import MindMapDialog
 

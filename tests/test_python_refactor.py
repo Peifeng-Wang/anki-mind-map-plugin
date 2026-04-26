@@ -228,7 +228,7 @@ def install_anki_stubs():
             "webview_did_receive_js_message",
         ),
         utils_factory=_utils_factory,
-        include_input_helpers=False,
+        include_input_helpers=True,
     )
     return fake_mw, utils, hooks
 
@@ -348,6 +348,7 @@ class PythonRefactorTests(unittest.TestCase):
         card_linker.removed = []
         card_linker.remove_link_from_card = lambda note, field: card_linker.removed.append((note, field))
         sys.modules[f"{PACKAGE_NAME}.card_linker"] = card_linker
+        sys.modules[PACKAGE_NAME].card_linker = card_linker
 
         review_indicator.show_mindmap_indicator()
         self.assertEqual(len(card_linker.removed), 1)
