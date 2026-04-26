@@ -303,21 +303,21 @@ class NoteUtilsTests(unittest.TestCase):
         self.assertEqual(json.loads(note["Data"]), data)
 
     def test_sync_root_title_updates_topic(self):
-        note = FakeNote(1, Data=json.dumps({"nodeData": {"id": "root", "topic": "Old"}}))
+        note = FakeNote(1, Data=json.dumps({"data": {"id": "root", "topic": "Old"}}))
         self.note_utils.sync_root_title(note, "New")
         data = json.loads(note["Data"])
-        self.assertEqual(data["nodeData"]["topic"], "New")
+        self.assertEqual(data["data"]["topic"], "New")
 
-    def test_sync_root_title_noop_when_no_nodeData(self):
-        note = FakeNote(1, Data=json.dumps({"data": {}}))
+    def test_sync_root_title_noop_when_no_data(self):
+        note = FakeNote(1, Data=json.dumps({"nodeData": {}}))
         self.note_utils.sync_root_title(note, "New")
-        self.assertEqual(json.loads(note["Data"]), {"data": {}})
+        self.assertEqual(json.loads(note["Data"]), {"nodeData": {}})
 
-    def test_sync_root_title_noop_when_nodeData_id_not_root(self):
-        note = FakeNote(1, Data=json.dumps({"nodeData": {"id": "other", "topic": "Old"}}))
+    def test_sync_root_title_noop_when_data_id_not_root(self):
+        note = FakeNote(1, Data=json.dumps({"data": {"id": "other", "topic": "Old"}}))
         self.note_utils.sync_root_title(note, "New")
         data = json.loads(note["Data"])
-        self.assertEqual(data["nodeData"]["topic"], "Old")
+        self.assertEqual(data["data"]["topic"], "Old")
 
     def test_sync_root_title_swallows_exception(self):
         note = FakeNote(1)  # missing Data field

@@ -36,8 +36,8 @@ def save_note_data(note, data):
 def sync_root_title(note, new_title):
     try:
         data = load_note_data(note)
-        if data.get('nodeData') and data['nodeData'].get('id') == 'root':
-            data['nodeData']['topic'] = new_title
+        if data.get('data') and data['data'].get('id') == 'root':
+            data['data']['topic'] = new_title
             save_note_data(note, data)
     except Exception:
         pass
