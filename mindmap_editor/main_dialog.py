@@ -109,7 +109,7 @@ class MindMapDialog(QDialog):
                 editor.activateWindow()
                 # Focus on specific node if needed
                 if focus_node_id:
-                    editor.web.eval(f"if(typeof focusNode === 'function') focusNode('{focus_node_id}');")
+                    editor.web.eval(f"if(typeof focusNode === 'function') focusNode({json.dumps(focus_node_id or '')});")
                 return editor
 
         # Create new window
@@ -243,7 +243,7 @@ class MindMapDialog(QDialog):
             logger.exception("Error saving")
             import traceback
             traceback.print_exc()
-            self.web.eval(f"if(typeof showToast === 'function') showToast('Error: {e}');")
+            self.web.eval(f"if(typeof showToast === 'function') showToast({json.dumps(f'Error: {e}')});")
 
     def _handle_refresh(self):
         """Refresh mindmap data"""

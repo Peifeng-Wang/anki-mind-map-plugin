@@ -114,7 +114,7 @@ def handle_create_map_link(dialog, params_json: str):
         dialog.mw.col.update_note(dialog.note)
 
         # Notify JavaScript of success
-        dialog.web.eval(f"if(typeof onMapLinkCreated === 'function') onMapLinkCreated({target_map_id}, '{linked_node_id}');")
+        dialog.web.eval(f"if(typeof onMapLinkCreated === 'function') onMapLinkCreated({json.dumps(target_map_id)}, {json.dumps(linked_node_id)});")
         dialog.web.eval("if(typeof showToast === 'function') showToast('Link created!');")
 
         # Refresh source map to show updated link indicator
@@ -131,7 +131,7 @@ def handle_create_map_link(dialog, params_json: str):
         logger.exception("Error creating map link")
         import traceback
         traceback.print_exc()
-        dialog.web.eval(f"if(typeof showToast === 'function') showToast('Error: {e}');")
+        dialog.web.eval(f"if(typeof showToast === 'function') showToast({json.dumps(f'Error: {e}')});")
 
 
 def handle_jump_to_map(dialog, params_json: str):

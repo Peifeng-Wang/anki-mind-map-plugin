@@ -8,7 +8,6 @@ from .constants import (
     MINDMAP_LINK_RE,
     RESET_BUTTON_JS,
     UPDATE_BUTTON_JS_TEMPLATE,
-    _SyncFlags,
     _sync_flags,
     card_sync,
     node_sync,
