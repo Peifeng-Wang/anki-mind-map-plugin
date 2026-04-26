@@ -168,7 +168,7 @@ function showEditFormattingContextMenu(x, y, textarea, onResize) {
 // Called from Python (Qt shortcuts) and can also be used by other JS code.
 window.applyTextFormatting = function (action) {
     if (!action) return;
-    if (!isEditing || !editingNodeId) return;
+    if (!MM.state.isEditing || !MM.state.editingNodeId) return;
 
     var textarea = document.getElementById('input-box');
     if (!textarea) return;
@@ -191,30 +191,30 @@ window.applyTextFormatting = function (action) {
 
 // Fallback: capture hotkeys at document level during edit mode (some environments don't deliver them to textarea).
 document.addEventListener('keydown', function (e) {
-    if (!isEditing || !editingNodeId) return;
+    if (!MM.state.isEditing || !MM.state.editingNodeId) return;
 
-    if (matchHotkey(e, hotkeyConfig.bold)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.bold)) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         window.applyTextFormatting('bold');
         return;
     }
-    if (matchHotkey(e, hotkeyConfig.italic)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.italic)) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         window.applyTextFormatting('italic');
         return;
     }
-    if (matchHotkey(e, hotkeyConfig.inline_code)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.inline_code)) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         window.applyTextFormatting('inline_code');
         return;
     }
-    if (matchHotkey(e, hotkeyConfig.code_block)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.code_block)) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();

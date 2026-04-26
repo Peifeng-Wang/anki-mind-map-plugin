@@ -1,10 +1,10 @@
 function toggleArrowMode() {
-    arrowMode = !arrowMode;
-    if (arrowMode) {
+    MM.state.arrowMode = !MM.state.arrowMode;
+    if (MM.state.arrowMode) {
         document.getElementById('jsmind_container').style.cursor = 'crosshair';
     } else {
         document.getElementById('jsmind_container').style.cursor = 'default';
-        arrowStart = null;
+        MM.state.arrowStart = null;
     }
 }
 
@@ -29,7 +29,7 @@ function getNodesAtDepth(depth, filterSide) {
         if (node.children && currentDepth < depth) {
             for (var i = 0; i < node.children.length; i++) {
                 var childId = (typeof node.children[i] === 'string') ? node.children[i] : node.children[i].id;
-                var childNode = jm.get_node(childId);
+                var childNode = MM.state.jm.get_node(childId);
                 if (childNode) {
                     traverse(childNode, currentDepth + 1);
                 }
@@ -37,7 +37,7 @@ function getNodesAtDepth(depth, filterSide) {
         }
     }
 
-    var root = jm.get_root();
+    var root = MM.state.jm.get_root();
     traverse(root, 0);
 
     // Filter by side if specified
@@ -69,7 +69,7 @@ function getNodeDepth(node) {
     var current = node;
     while (current.parent) {
         depth++;
-        current = jm.get_node(current.parent);
+        current = MM.state.jm.get_node(current.parent);
         if (!current) break;
     }
     return depth;
@@ -79,7 +79,7 @@ function getNodeDepth(node) {
 function getNodeSide(node) {
     if (node.isroot) return 'center';
 
-    var root = jm.get_root();
+    var root = MM.state.jm.get_root();
     var rootElem = document.querySelector('jmnode[nodeid="' + root.id + '"]');
     var nodeElem = document.querySelector('jmnode[nodeid="' + node.id + '"]');
 
@@ -106,7 +106,7 @@ function getClosestChild(parentNode) {
 
     for (var i = 0; i < parentNode.children.length; i++) {
         var childId = (typeof parentNode.children[i] === 'string') ? parentNode.children[i] : parentNode.children[i].id;
-        var childNode = jm.get_node(childId);
+        var childNode = MM.state.jm.get_node(childId);
         if (!childNode) continue;
 
         var childElem = document.querySelector('jmnode[nodeid="' + childId + '"]');
@@ -127,29 +127,29 @@ function getClosestChild(parentNode) {
 
 // Scroll node into view smoothly (XMind-style)
 function scrollToNode(nodeId) {
-    if (!jm || !jm.view) return;
+    if (!MM.state.jm || !MM.state.jm.view) return;
 
     // Get jsMind's scroll container (the actual panel that scrolls)
-    var container = jm.view.e_panel || getJsMindPanelEl() || document.getElementById('jsmind_container');
+    var container = MM.state.jm.view.e_panel || getJsMindPanelEl() || document.getElementById('jsmind_container');
     if (!container) return;
 
     // Cancel any in-progress animation to avoid "fighting" scroll positions when navigating quickly.
-    scrollToNodeAnimToken++;
-    if (scrollToNodeAnimRaf) {
-        cancelAnimationFrame(scrollToNodeAnimRaf);
-        scrollToNodeAnimRaf = null;
+    MM.state.scrollToNodeAnimToken++;
+    if (MM.state.scrollToNodeAnimRaf) {
+        cancelAnimationFrame(MM.state.scrollToNodeAnimRaf);
+        MM.state.scrollToNodeAnimRaf = null;
     }
 
     var targetScrollLeft = null;
     var targetScrollTop = null;
 
     // Prefer jsMind view coordinates (stable under CSS zoom) over DOM rects.
-    var node = jm.get_node(nodeId);
+    var node = MM.state.jm.get_node(nodeId);
     if (node && node._data && node._data.view) {
         var vd = node._data.view;
         if (typeof vd.abs_x === 'number' && typeof vd.abs_y === 'number' &&
             typeof vd.width === 'number' && typeof vd.height === 'number') {
-            var zoom = (jm.view && jm.view.actualZoom) || 1;
+            var zoom = (MM.state.jm.view && MM.state.jm.view.actualZoom) || 1;
             var nodeCenterX = vd.abs_x + vd.width / 2;
             var nodeCenterY = vd.abs_y + vd.height / 2;
             targetScrollLeft = nodeCenterX * zoom - container.clientWidth / 2;
@@ -190,7 +190,7 @@ function scrollToNode(nodeId) {
     // Duration: 400ms for visible but smooth movement
     var duration = 400;
     var startTime = null;
-    var token = scrollToNodeAnimToken;
+    var token = MM.state.scrollToNodeAnimToken;
 
     // Easing function: ease-out-cubic for natural deceleration
     function easeOutCubic(t) {
@@ -198,7 +198,7 @@ function scrollToNode(nodeId) {
     }
 
     function animateScroll(currentTime) {
-        if (token !== scrollToNodeAnimToken) return;
+        if (token !== MM.state.scrollToNodeAnimToken) return;
         if (!startTime) startTime = currentTime;
         var elapsed = currentTime - startTime;
         var progress = Math.min(elapsed / duration, 1);
@@ -208,18 +208,18 @@ function scrollToNode(nodeId) {
         container.scrollTop = startScrollTop + distanceTop * eased;
 
         if (progress < 1) {
-            scrollToNodeAnimRaf = requestAnimationFrame(animateScroll);
+            MM.state.scrollToNodeAnimRaf = requestAnimationFrame(animateScroll);
         } else {
-            scrollToNodeAnimRaf = null;
+            MM.state.scrollToNodeAnimRaf = null;
         }
     }
 
-    scrollToNodeAnimRaf = requestAnimationFrame(animateScroll);
+    MM.state.scrollToNodeAnimRaf = requestAnimationFrame(animateScroll);
 }
 
 function navigateUp() {
-    if (!jm) return;
-    var selected = jm.get_selected_node();
+    if (!MM.state.jm) return;
+    var selected = MM.state.jm.get_selected_node();
     if (!selected) return;
 
     var depth = getNodeDepth(selected);
@@ -236,14 +236,14 @@ function navigateUp() {
 
     if (currentIndex > 0) {
         var targetId = nodesAtDepth[currentIndex - 1].node.id;
-        jm.select_node(targetId);
+        MM.state.jm.select_node(targetId);
         scrollToNode(targetId);
     }
 }
 
 function navigateDown() {
-    if (!jm) return;
-    var selected = jm.get_selected_node();
+    if (!MM.state.jm) return;
+    var selected = MM.state.jm.get_selected_node();
     if (!selected) return;
 
     var depth = getNodeDepth(selected);
@@ -260,14 +260,14 @@ function navigateDown() {
 
     if (currentIndex >= 0 && currentIndex < nodesAtDepth.length - 1) {
         var targetId = nodesAtDepth[currentIndex + 1].node.id;
-        jm.select_node(targetId);
+        MM.state.jm.select_node(targetId);
         scrollToNode(targetId);
     }
 }
 
 function navigateLeft() {
-    if (!jm) return;
-    var selected = jm.get_selected_node();
+    if (!MM.state.jm) return;
+    var selected = MM.state.jm.get_selected_node();
     if (!selected) return;
 
     // If at root, go to left-side closest child
@@ -296,7 +296,7 @@ function navigateLeft() {
 
             if (leftChildren.length > 0) {
                 leftChildren.sort(function (a, b) { return a.dist - b.dist; });
-                jm.select_node(leftChildren[0].id);
+                MM.state.jm.select_node(leftChildren[0].id);
                 scrollToNode(leftChildren[0].id);
             }
         }
@@ -310,21 +310,21 @@ function navigateLeft() {
         // Left side: left arrow goes to children
         var child = getClosestChild(selected);
         if (child) {
-            jm.select_node(child.id);
+            MM.state.jm.select_node(child.id);
             scrollToNode(child.id);
         }
     } else {
         // Right side: left arrow goes to parent
         if (selected.parent) {
-            jm.select_node(selected.parent);
+            MM.state.jm.select_node(selected.parent);
             scrollToNode(selected.parent.id);
         }
     }
 }
 
 function navigateRight() {
-    if (!jm) return;
-    var selected = jm.get_selected_node();
+    if (!MM.state.jm) return;
+    var selected = MM.state.jm.get_selected_node();
     if (!selected) return;
 
     // If at root, go to right-side closest child
@@ -353,7 +353,7 @@ function navigateRight() {
 
             if (rightChildren.length > 0) {
                 rightChildren.sort(function (a, b) { return a.dist - b.dist; });
-                jm.select_node(rightChildren[0].id);
+                MM.state.jm.select_node(rightChildren[0].id);
                 scrollToNode(rightChildren[0].id);
             }
         }
@@ -366,14 +366,14 @@ function navigateRight() {
     if (side === 'left') {
         // Left side: right arrow goes to parent
         if (selected.parent) {
-            jm.select_node(selected.parent);
+            MM.state.jm.select_node(selected.parent);
             scrollToNode(selected.parent.id);
         }
     } else {
         // Right side: right arrow goes to children
         var child = getClosestChild(selected);
         if (child) {
-            jm.select_node(child.id);
+            MM.state.jm.select_node(child.id);
             scrollToNode(child.id);
         }
     }

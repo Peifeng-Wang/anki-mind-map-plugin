@@ -510,6 +510,9 @@ class TestReviewIndicatorFacade(unittest.TestCase):
         card_linker.removed = []
         card_linker.remove_link_from_card = lambda note, field: card_linker.removed.append((note, field))
         sys.modules[f"{PACKAGE_NAME}.card_linker"] = card_linker
+        # `from . import card_linker` resolves via getattr on the parent package,
+        # so override any attribute left over from earlier tests.
+        sys.modules[PACKAGE_NAME].card_linker = card_linker
 
         ri.show_mindmap_indicator()
         self.assertEqual(len(card_linker.removed), 1)

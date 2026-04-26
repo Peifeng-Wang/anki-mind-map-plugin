@@ -1,29 +1,29 @@
 function toggleSelectedNodeCollapse() {
-    if (!jm) return false;
+    if (!MM.state.jm) return false;
 
-    var selected = jm.get_selected_node();
+    var selected = MM.state.jm.get_selected_node();
     if (!selected) return false;
 
     if (!selected.children || selected.children.length === 0) {
         return false;
     }
 
-    if (typeof jm.toggle_node === 'function') {
-        jm.toggle_node(selected.id);
+    if (typeof MM.state.jm.toggle_node === 'function') {
+        MM.state.jm.toggle_node(selected.id);
         renderSummaryBraces();
         renderBoundaries();
         return true;
     }
 
     // Fallback for older builds (should not be needed with bundled jsMind).
-    if (selected.expanded && typeof jm.collapse_node === 'function') {
-        jm.collapse_node(selected.id);
+    if (selected.expanded && typeof MM.state.jm.collapse_node === 'function') {
+        MM.state.jm.collapse_node(selected.id);
         renderSummaryBraces();
         renderBoundaries();
         return true;
     }
-    if (!selected.expanded && typeof jm.expand_node === 'function') {
-        jm.expand_node(selected.id);
+    if (!selected.expanded && typeof MM.state.jm.expand_node === 'function') {
+        MM.state.jm.expand_node(selected.id);
         renderSummaryBraces();
         renderBoundaries();
         return true;
@@ -41,13 +41,13 @@ document.addEventListener('contextmenu', function (e) {
         e.preventDefault();
 
         // Check if we have multiple nodes selected
-        if (selectedNodes.length > 1) {
+        if (MM.state.selectedNodes.length > 1) {
             showMultiSelectionContextMenu(e.clientX, e.clientY);
             return;
         }
 
         var nodeId = nodeElement.getAttribute('nodeid');
-        var node = jm.get_node(nodeId);
+        var node = MM.state.jm.get_node(nodeId);
 
         // Gather node properties
         var noteId = (node.data && node.data.noteId) || node.noteId;
@@ -67,9 +67,6 @@ document.addEventListener('contextmenu', function (e) {
 
     }
 });
-
-// Pending callback for map selection
-var pendingMapLinkCallback = null;
 
 function showNodeContextMenu(x, y, nodeInfo) {
     // Remove existing menu
@@ -165,7 +162,7 @@ function showNodeContextMenu(x, y, nodeInfo) {
     }
 
     // 4. If this is root node (not in read-only mode), show "Link to Other Mind Map"
-    if (nodeInfo.isRoot && jm && jm.get_editable()) {
+    if (nodeInfo.isRoot && MM.state.jm && MM.state.jm.get_editable()) {
         // Add separator if there are other items
         if (hasItems) {
             var sep = document.createElement('div');

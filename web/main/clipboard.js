@@ -1,5 +1,5 @@
 function focusNode(nodeId) {
-    if (!jm || !nodeId) {
+    if (!MM.state.jm || !nodeId) {
         console.log('Cannot focus node: jm not initialized or no nodeId');
         return;
     }
@@ -8,7 +8,7 @@ function focusNode(nodeId) {
         console.log('Focusing on node:', nodeId);
 
         // Select the node
-        jm.select_node(nodeId);
+        MM.state.jm.select_node(nodeId);
 
         // Get the node element
         var nodeElement = document.querySelector('jmnode[nodeid="' + nodeId + '"]');
@@ -31,10 +31,10 @@ function focusNode(nodeId) {
 }
 
 document.addEventListener('paste', function (e) {
-    if (isEditing) return;
-    if (jm && !jm.get_editable()) return;
+    if (MM.state.isEditing) return;
+    if (MM.state.jm && !MM.state.jm.get_editable()) return;
 
-    var selected = jm.get_selected_node();
+    var selected = MM.state.jm.get_selected_node();
     if (selected) {
         e.preventDefault();
 
@@ -44,9 +44,9 @@ document.addEventListener('paste', function (e) {
 
             var newId = 'node_' + Date.now();
 
-            jm.add_node(selected, newId, text);
+            MM.state.jm.add_node(selected, newId, text);
 
-            jm.select_node(newId);
+            MM.state.jm.select_node(newId);
 
             if (typeof window.saveHistory === 'function') {
                 window.saveHistory();
@@ -61,9 +61,9 @@ document.addEventListener('paste', function (e) {
 });
 
 document.addEventListener('copy', function (e) {
-    if (isEditing) return;
+    if (MM.state.isEditing) return;
 
-    var selected = jm.get_selected_node();
+    var selected = MM.state.jm.get_selected_node();
     if (selected) {
         var text = selected.topic;
 

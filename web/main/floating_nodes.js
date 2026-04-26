@@ -1,5 +1,5 @@
 function loadFloatingNode(nodeData) {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
     var container = document.getElementById('jsmind_container');
     if (!container) return;
@@ -42,7 +42,7 @@ function loadFloatingNode(nodeData) {
         children: [],
         isFloating: true
     };
-    floatingNodes.push(floatingNode);
+    MM.state.floatingNodes.push(floatingNode);
 
     // Setup drag and edit functionality
     setupFloatingNodeDrag(floatingNode);
@@ -56,7 +56,7 @@ function setupFloatingNodes() {
 
     // Double-click on empty space to create floating node
     container.addEventListener('dblclick', function (e) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         if (typeof enableFloatingNodesFromPython !== 'undefined' && !enableFloatingNodesFromPython) {
             return;
         }
@@ -75,12 +75,12 @@ function setupFloatingNodes() {
 
 // Create a floating node (independent node without parent)
 function createFloatingNode(clientX, clientY) {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
     var container = document.getElementById('jsmind_container');
     if (!container) return;
 
-    var jview = jm.view;
+    var jview = MM.state.jm.view;
 
     // Get the nodes container
     var nodesContainer = getJsMindNodesEl();
@@ -104,7 +104,7 @@ function createFloatingNode(clientX, clientY) {
     var canvasY = (clientY - panelRect.top) / zoom + e_panel.scrollTop;
 
     // Create node element
-    var nodeId = floatingNodeIdPrefix + Date.now();
+    var nodeId = MM.state.floatingNodeIdPrefix + Date.now();
     var nodeElement = document.createElement('jmnode');
     nodeElement.setAttribute('nodeid', nodeId);
     nodeElement.innerHTML = ''; // Empty node
@@ -141,7 +141,7 @@ function createFloatingNode(clientX, clientY) {
         children: [],
         isFloating: true
     };
-    floatingNodes.push(floatingNode);
+    MM.state.floatingNodes.push(floatingNode);
 
     // Adjust position after rendering to center on click point
     setTimeout(function () {
@@ -177,9 +177,9 @@ function setupFloatingNodeDrag(floatingNode) {
     var originalTransition = '';
 
     element.addEventListener('mousedown', function (e) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         if (e.target !== element && e.target.parentElement !== element) return;
-        if (isEditing) return; // Don't drag while editing
+        if (MM.state.isEditing) return; // Don't drag while editing
 
         isDragging = true;
         element.style.cursor = 'grabbing';
@@ -192,7 +192,7 @@ function setupFloatingNodeDrag(floatingNode) {
         e.stopPropagation();
 
         // Get view parameters
-        var jview = jm.view;
+        var jview = MM.state.jm.view;
         var zoom = (jview && jview.actualZoom) || 1;
 
         // For floating nodes, use style.left/top (actual position) not offsetLeft/Top
@@ -333,18 +333,18 @@ function tryAttachToNode(floatingNode) {
     if (closestNode) {
         // Attach to the closest node
         var targetNodeId = closestNode.getAttribute('nodeid');
-        var targetNode = jm.get_node(targetNodeId);
+        var targetNode = MM.state.jm.get_node(targetNodeId);
 
         if (targetNode) {
             // Add as child to jsMind
             var newNodeId = 'node_' + Date.now();
-            jm.add_node(targetNode, newNodeId, floatingNode.topic);
+            MM.state.jm.add_node(targetNode, newNodeId, floatingNode.topic);
 
             // Remove floating node
             removeFloatingNode(floatingNode);
 
             // Select the new node
-            jm.select_node(newNodeId);
+            MM.state.jm.select_node(newNodeId);
 
             // Clear shadows
             allJsNodes.forEach(function (node) {
@@ -365,9 +365,9 @@ function removeFloatingNode(floatingNode) {
         floatingNode.element.parentNode.removeChild(floatingNode.element);
     }
 
-    var index = floatingNodes.indexOf(floatingNode);
+    var index = MM.state.floatingNodes.indexOf(floatingNode);
     if (index > -1) {
-        floatingNodes.splice(index, 1);
+        MM.state.floatingNodes.splice(index, 1);
     }
 }
 
@@ -377,7 +377,7 @@ function setupFloatingNodeEdit(floatingNode) {
 
     // Click to select
     element.addEventListener('click', function (e) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         selectFloatingNode(floatingNode);
         e.preventDefault();
         e.stopPropagation();
@@ -385,7 +385,7 @@ function setupFloatingNodeEdit(floatingNode) {
 
     // Double-click to edit
     element.addEventListener('dblclick', function (e) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         enterFloatingNodeEditMode(floatingNode);
         e.preventDefault();
         e.stopPropagation();
@@ -393,8 +393,8 @@ function setupFloatingNodeEdit(floatingNode) {
 
     // Keyboard events
     element.addEventListener('keydown', function (e) {
-        if (isEditing) return;
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.isEditing) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
 
         console.log('Key pressed on floating node:', e.key, 'Node:', floatingNode.id);
 
@@ -422,13 +422,10 @@ function setupFloatingNodeEdit(floatingNode) {
     });
 }
 
-// Currently selected floating node
-var selectedFloatingNode = null;
-
 // Select floating node
 function selectFloatingNode(floatingNode) {
     // Deselect all floating nodes
-    floatingNodes.forEach(function (node) {
+    MM.state.floatingNodes.forEach(function (node) {
         node.element.style.outline = 'none';
         node.isSelected = false;
     });
@@ -438,16 +435,16 @@ function selectFloatingNode(floatingNode) {
     floatingNode.element.setAttribute('tabindex', '0');
     floatingNode.element.focus();
     floatingNode.isSelected = true;
-    selectedFloatingNode = floatingNode;
+    MM.state.selectedFloatingNode = floatingNode;
 
     console.log('Selected floating node:', floatingNode.id);
 }
 
 // Enter edit mode for floating node
 function enterFloatingNodeEditMode(floatingNode) {
-    if (isEditing) return;
+    if (MM.state.isEditing) return;
 
-    isEditing = true;
+    MM.state.isEditing = true;
     var element = floatingNode.element;
     var currentText = floatingNode.topic;
 
@@ -493,9 +490,9 @@ function enterFloatingNodeEditMode(floatingNode) {
 
 // Exit edit mode for floating node
 function exitFloatingNodeEditMode(floatingNode, newText) {
-    if (!isEditing) return;
+    if (!MM.state.isEditing) return;
 
-    isEditing = false;
+    MM.state.isEditing = false;
     floatingNode.topic = newText || ''; // Keep empty if no text
     floatingNode.element.innerHTML = floatingNode.topic; // Use innerHTML to match jsMind
 
@@ -506,18 +503,18 @@ function exitFloatingNodeEditMode(floatingNode, newText) {
 // Add floating node as child (when Tab is pressed on floating node)
 function addChildToFloatingNode(floatingNode) {
     // Convert floating node to jsMind node first
-    var root = jm.get_root();
+    var root = MM.state.jm.get_root();
     var newParentId = 'node_' + Date.now();
-    jm.add_node(root, newParentId, floatingNode.topic);
+    MM.state.jm.add_node(root, newParentId, floatingNode.topic);
 
     // Remove floating node
     removeFloatingNode(floatingNode);
 
     // Add child
     var childId = 'node_' + Date.now() + '_child';
-    var parentNode = jm.get_node(newParentId);
-    jm.add_node(parentNode, childId, 'New Child');
-    jm.select_node(childId);
+    var parentNode = MM.state.jm.get_node(newParentId);
+    MM.state.jm.add_node(parentNode, childId, 'New Child');
+    MM.state.jm.select_node(childId);
 
     setTimeout(renderMath, 300);
     saveHistory();

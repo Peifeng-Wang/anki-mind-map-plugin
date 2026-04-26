@@ -427,15 +427,15 @@ test('main.js save refactor keeps expected structure', () => {
     assert.ok(main.includes(`${field}:`), `save payload field ${field} missing`);
   });
   assert.strictEqual(countMatches(main, /pycmd\("save:" \+ JSON\.stringify\(payload\)\);/g), 2);
-  assert.strictEqual(countMatches(main, /changedNodes\.clear\(\);/g), 2);
+  assert.strictEqual(countMatches(main, /MM\.state\.changedNodes\.clear\(\);/g), 2);
   assert.ok(main.includes('function installUpdateNodeTracking('), 'update_node tracking installer missing');
   assert.ok(main.includes('_ankiMindMapTracksChanges'), 'update_node tracking guard missing');
   assert.strictEqual(countMatches(main, /installUpdateNodeTracking\(/g), 3,
     'installer should be defined and called from init and reload');
-  assert.ok(main.includes('var mindMapHistoryStateStrings = [];'), 'history string cache missing');
-  assert.ok(main.includes('mindMapHistoryStateStrings[mindMapHistoryIndex]'), 'history cache should be used for duplicate detection');
-  assert.ok(main.includes('mindMapHistoryStateStrings.push(currentStateStr);'), 'history cache should be updated when pushing history');
-  assert.ok(main.includes('mindMapHistoryStateStrings.shift();'), 'history cache should stay aligned when trimming history');
+  assert.ok(main.includes('mindMapHistoryStateStrings: [],'), 'history string cache missing from MM.state');
+  assert.ok(main.includes('MM.state.mindMapHistoryStateStrings[MM.state.mindMapHistoryIndex]'), 'history cache should be used for duplicate detection');
+  assert.ok(main.includes('MM.state.mindMapHistoryStateStrings.push(currentStateStr);'), 'history cache should be updated when pushing history');
+  assert.ok(main.includes('MM.state.mindMapHistoryStateStrings.shift();'), 'history cache should stay aligned when trimming history');
 });
 
 test('CSS refactors keep non-empty rules and selected override ordering', () => {

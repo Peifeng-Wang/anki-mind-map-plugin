@@ -1,5 +1,5 @@
 function validateSummarySelection() {
-    if (selectedNodes.length < 2) {
+    if (MM.state.selectedNodes.length < 2) {
         return { valid: false, reason: 'Select at least 2 nodes' };
     }
 
@@ -7,9 +7,9 @@ function validateSummarySelection() {
     var nodes = [];
     var parentId = null;
 
-    for (var i = 0; i < selectedNodes.length; i++) {
-        var nodeId = selectedNodes[i].getAttribute('nodeid');
-        var node = jm.get_node(nodeId);
+    for (var i = 0; i < MM.state.selectedNodes.length; i++) {
+        var nodeId = MM.state.selectedNodes[i].getAttribute('nodeid');
+        var node = MM.state.jm.get_node(nodeId);
 
         if (!node) return { valid: false, reason: 'Invalid node' };
         if (node.isroot) return { valid: false, reason: 'Cannot include root' };
@@ -29,7 +29,7 @@ function validateSummarySelection() {
     }
 
     // All nodes are valid siblings - no consecutive check needed
-    var parentNode = jm.get_node(parentId);
+    var parentNode = MM.state.jm.get_node(parentId);
     if (!parentNode) return { valid: false, reason: 'Parent not found' };
 
     return {
@@ -95,7 +95,7 @@ function removeSummaryElementAndWrapper(summaryElement) {
 }
 
 function getSummarySizeInMap(summaryElement) {
-    var z = (jm && jm.view && jm.view.actualZoom) || 1;
+    var z = (MM.state.jm && MM.state.jm.view && MM.state.jm.view.actualZoom) || 1;
     if (!z) z = 1;
 
     var w = 0, h = 0;
@@ -136,8 +136,8 @@ function getSummaryBoxFromBraceData(braceData, summaryElement) {
 // Create a summary for selected nodes
 
 function createSummary() {
-    if (!jm) return;
-    if (jm && !jm.get_editable()) {
+    if (!MM.state.jm) return;
+    if (MM.state.jm && !MM.state.jm.get_editable()) {
         showToast('Read-only mode');
         return;
     }
@@ -214,7 +214,7 @@ function createSummary() {
 
 
     // Create summary node as a floating-style special node
-    var summaryNodeId = summaryBraceIdPrefix + Date.now();
+    var summaryNodeId = MM.state.summaryBraceIdPrefix + Date.now();
 
     // Position for the summary node (after the brace)
     var braceWidth = 40;
@@ -254,12 +254,12 @@ function createSummary() {
         summarizedNodeIds: nodeIds,
         summaryNodeId: summaryNodeId,
         direction: direction,
-        color: braceColor,
+        color: MM.state.braceColor,
         summaryX: summaryAnchorX,
         summaryY: braceTipY,
         summaryTopic: 'Summary'
     };
-    summaryBraces.push(braceData);
+    MM.state.summaryBraces.push(braceData);
 
     // Setup edit and drag for the summary node
     setupSummaryNodeInteraction(summaryElement, braceData);
@@ -283,12 +283,12 @@ function createSummary() {
 function setupSummaryNodeInteraction(element, braceData) {
     // Click to select
     element.addEventListener('click', function (e) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         e.preventDefault();
         e.stopPropagation();
 
         // Deselect jsMind nodes
-        jm.select_clear();
+        MM.state.jm.select_clear();
 
         // Visual selection
         document.querySelectorAll('jmnode[data-is-summary="true"]').forEach(function (el) {
@@ -301,7 +301,7 @@ function setupSummaryNodeInteraction(element, braceData) {
 
     // Double-click to edit
     element.addEventListener('dblclick', function (e) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         e.preventDefault();
         e.stopPropagation();
         enterSummaryEditMode(element, braceData);
@@ -309,7 +309,7 @@ function setupSummaryNodeInteraction(element, braceData) {
 
     // Keyboard events
     element.addEventListener('keydown', function (e) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
 
         // Space: edit
         if (e.key === ' ') {
@@ -366,9 +366,9 @@ function deleteSummaryByElement(element, braceData) {
     removeSummaryElementAndWrapper(element);
 
     // Remove from braces array
-    var idx = summaryBraces.indexOf(braceData);
+    var idx = MM.state.summaryBraces.indexOf(braceData);
     if (idx > -1) {
-        summaryBraces.splice(idx, 1);
+        MM.state.summaryBraces.splice(idx, 1);
     }
 
     // Redraw
@@ -380,20 +380,20 @@ function deleteSummaryByElement(element, braceData) {
 
 // Mark summary nodes with data attribute for CSS styling
 function markSummaryNodes() {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
     var allNodes = document.querySelectorAll('jmnode');
     allNodes.forEach(function (nodeElement) {
         var nodeId = nodeElement.getAttribute('nodeid');
         if (!nodeId) return;
 
-        var node = jm.get_node(nodeId);
+        var node = MM.state.jm.get_node(nodeId);
         if (!node) return;
 
         if (node.data && node.data.isSummaryNode) {
             nodeElement.setAttribute('data-is-summary', 'true');
             // Apply brace color to node
-            var color = node.data.braceColor || braceColor;
+            var color = node.data.braceColor || MM.state.braceColor;
             nodeElement.style.setProperty('--summary-color', color);
         } else {
             nodeElement.removeAttribute('data-is-summary');
@@ -407,7 +407,7 @@ function renderSummaryBraces() {
     var existingBraces = document.querySelectorAll('.summary-brace');
     existingBraces.forEach(function (el) { el.remove(); });
 
-    if (!jm || !jm.view) return;
+    if (!MM.state.jm || !MM.state.jm.view) return;
 
     var container = document.getElementById('jsmind_container');
     if (!container) return;
@@ -427,9 +427,9 @@ function renderSummaryBraces() {
     if (!summaryLayer) return;
 
     // Filter out invalid braces (require at least 2 source nodes)
-    summaryBraces = summaryBraces.filter(function (braceData) {
+    MM.state.summaryBraces = MM.state.summaryBraces.filter(function (braceData) {
         var validNodes = braceData.summarizedNodeIds.filter(function (id) {
-            return jm.get_node(id) !== null;
+            return MM.state.jm.get_node(id) !== null;
         });
         // If less than 2 nodes remain, remove the summary brace and its node
         if (validNodes.length < 2) {
@@ -444,12 +444,12 @@ function renderSummaryBraces() {
     });
 
     // Auto-detect siblings that should be added to existing braces
-    summaryBraces.forEach(function (braceData) {
+    MM.state.summaryBraces.forEach(function (braceData) {
         if (braceData.summarizedNodeIds.length === 0) return;
 
         // Get the parent of summarized nodes
         var firstNodeId = braceData.summarizedNodeIds[0];
-        var firstNode = jm.get_node(firstNodeId);
+        var firstNode = MM.state.jm.get_node(firstNodeId);
         if (!firstNode || !firstNode.parent) return;
 
         var parentNode = firstNode.parent;
@@ -459,7 +459,7 @@ function renderSummaryBraces() {
         var minY = Infinity, maxY = -Infinity;
 
         braceData.summarizedNodeIds.forEach(function (nodeId) {
-            var node = jm.get_node(nodeId);
+            var node = MM.state.jm.get_node(nodeId);
             if (!node || !isMindNodeVisible(node)) return;
             var box = getNodeBoxFromView(node);
             if (!box) return;
@@ -494,7 +494,7 @@ function renderSummaryBraces() {
         });
     });
 
-    summaryBraces.forEach(function (braceData) {
+    MM.state.summaryBraces.forEach(function (braceData) {
         renderSingleBrace(braceData, panel, container, summaryLayer);
     });
 }
@@ -540,7 +540,7 @@ function renderSingleBrace(braceData, panel, container, summaryLayer) {
 
     for (var i = 0; i < braceData.summarizedNodeIds.length; i++) {
         var nodeId = braceData.summarizedNodeIds[i];
-        var node = jm.get_node(nodeId);
+        var node = MM.state.jm.get_node(nodeId);
         if (!node || !isMindNodeVisible(node)) continue;
         var box = getNodeBoxFromView(node);
         if (!box) continue;
@@ -594,7 +594,7 @@ function renderSingleBrace(braceData, panel, container, summaryLayer) {
         summaryElement.setAttribute('nodeid', braceData.summaryNodeId);
         summaryElement.innerHTML = braceData.summaryTopic || 'Summary';
         summaryElement.setAttribute('data-is-summary', 'true');
-        summaryElement.setAttribute('data-brace-color', braceData.color || braceColor);
+        summaryElement.setAttribute('data-brace-color', braceData.color || MM.state.braceColor);
         // Override default jmnode absolute positioning so wrapper can size to content.
         summaryElement.style.position = 'relative';
         summaryElement.style.pointerEvents = 'auto';
@@ -687,7 +687,7 @@ function renderSingleBrace(braceData, panel, container, summaryLayer) {
     }
 
     path.setAttribute('d', d);
-    path.setAttribute('stroke', braceData.color || braceColor);
+    path.setAttribute('stroke', braceData.color || MM.state.braceColor);
     path.setAttribute('stroke-width', '3');
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke-linecap', 'round');
@@ -712,7 +712,7 @@ function renderSingleBrace(braceData, panel, container, summaryLayer) {
     var lineY = lineMidY;
 
     line.setAttribute('d', 'M ' + lineStartX + ' ' + lineY + ' L ' + lineEndX + ' ' + lineY);
-    line.setAttribute('stroke', braceData.color || braceColor);
+    line.setAttribute('stroke', braceData.color || MM.state.braceColor);
     line.setAttribute('stroke-width', '2');
     line.setAttribute('fill', 'none');
 
@@ -727,15 +727,15 @@ function renderSingleBrace(braceData, panel, container, summaryLayer) {
 function deleteSummaryNode(nodeId) {
     // Find and remove the brace
     var braceIndex = -1;
-    for (var i = 0; i < summaryBraces.length; i++) {
-        if (summaryBraces[i].summaryNodeId === nodeId) {
+    for (var i = 0; i < MM.state.summaryBraces.length; i++) {
+        if (MM.state.summaryBraces[i].summaryNodeId === nodeId) {
             braceIndex = i;
             break;
         }
     }
 
     if (braceIndex > -1) {
-        summaryBraces.splice(braceIndex, 1);
+        MM.state.summaryBraces.splice(braceIndex, 1);
     }
 
     // Remove the floating summary node element

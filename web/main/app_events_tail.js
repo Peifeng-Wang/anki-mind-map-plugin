@@ -1,9 +1,9 @@
 function toggleReadOnly() {
-    if (!jm) return;
+    if (!MM.state.jm) return;
     var checkbox = document.getElementById('readonly_toggle');
     if (checkbox.checked) {
-        jm.disable_edit();
+        MM.state.jm.disable_edit();
     } else {
-        jm.enable_edit();
+        MM.state.jm.enable_edit();
     }
 }

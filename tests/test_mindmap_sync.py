@@ -56,7 +56,11 @@ class TestSyncMethods(unittest.TestCase):
 
         mock_card_linker = MagicMock()
         mock_card_linker.node_sync = fake_node_sync
+        # sync.py uses `from .. import card_linker` with fallback to `import card_linker`.
+        # When __init__.py is renamed by run_tests.py, the relative import fails
+        # ("beyond top-level package") and the top-level fallback runs, so mock both keys.
         sys.modules['mindmap_editor.card_linker'] = mock_card_linker
+        sys.modules['card_linker'] = mock_card_linker
         import mindmap_editor
         mindmap_editor.card_linker = mock_card_linker
 

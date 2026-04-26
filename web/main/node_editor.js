@@ -1,5 +1,5 @@
 document.addEventListener('keydown', function (e) {
-    if (isEditing) {
+    if (MM.state.isEditing) {
         // Intercept ALL events in capture phase
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -23,17 +23,17 @@ document.addEventListener('keydown', function (e) {
 // Regular event listener for non-editing mode
 document.addEventListener('keydown', function (e) {
     // Skip if editing
-    if (isEditing) {
+    if (MM.state.isEditing) {
         return;
     }
 
     // Handle floating node deletion
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFloatingNode) {
-        if (jm && !jm.get_editable()) return;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && MM.state.selectedFloatingNode) {
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         e.preventDefault();
-        console.log('Global delete handler - deleting floating node:', selectedFloatingNode.id);
-        removeFloatingNode(selectedFloatingNode);
-        selectedFloatingNode = null;
+        console.log('Global delete handler - deleting floating node:', MM.state.selectedFloatingNode.id);
+        removeFloatingNode(MM.state.selectedFloatingNode);
+        MM.state.selectedFloatingNode = null;
         saveHistory();
         scheduleAutoSave();
         return;
@@ -64,7 +64,7 @@ document.addEventListener('keydown', function (e) {
     }
 
     // Toggle collapse/expand for selected node (only if it has children)
-    if (matchHotkey(e, hotkeyConfig.toggle_collapse)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.toggle_collapse)) {
         if (toggleSelectedNodeCollapse()) {
             e.preventDefault();
             return;
@@ -73,26 +73,26 @@ document.addEventListener('keydown', function (e) {
     }
 
     // Save hotkey
-    if (matchHotkey(e, hotkeyConfig.save)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.save)) {
         e.preventDefault();
         saveMap();
         return;
     }
 
     // Refresh hotkey
-    if (matchHotkey(e, hotkeyConfig.refresh)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.refresh)) {
         e.preventDefault();
         refreshMap();
         return;
     }
 
     // Focus root hotkey
-    if (matchHotkey(e, hotkeyConfig.focus_root)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.focus_root)) {
         e.preventDefault();
-        if (jm) {
-            var root = jm.get_root();
+        if (MM.state.jm) {
+            var root = MM.state.jm.get_root();
             if (root) {
-                jm.select_node(root.id);
+                MM.state.jm.select_node(root.id);
                 scrollToNode(root.id);
             }
         }
@@ -100,10 +100,10 @@ document.addEventListener('keydown', function (e) {
     }
 
     // Create summary hotkey
-    if (matchHotkey(e, hotkeyConfig.create_summary)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.create_summary)) {
         e.preventDefault();
-        if (jm && !jm.get_editable()) return;
-        if (selectedNodes.length >= 2) {
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
+        if (MM.state.selectedNodes.length >= 2) {
             createSummary();
         } else {
             showToast('Select multiple nodes first (Shift+Click)');
@@ -112,10 +112,10 @@ document.addEventListener('keydown', function (e) {
     }
 
     // Create boundary hotkey
-    if (matchHotkey(e, hotkeyConfig.create_boundary)) {
+    if (matchHotkey(e, MM.state.hotkeyConfig.create_boundary)) {
         e.preventDefault();
-        if (jm && !jm.get_editable()) return;
-        if (selectedNodes.length >= 1) {
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
+        if (MM.state.selectedNodes.length >= 1) {
             createBoundary();
         } else {
             showToast('Select at least 1 node (Shift+Click)');
@@ -125,22 +125,22 @@ document.addEventListener('keydown', function (e) {
 
     // Delete boundary with Delete key
     if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedBoundary) {
+        if (MM.state.selectedBoundary) {
             e.preventDefault();
-            deleteBoundary(selectedBoundary);
+            deleteBoundary(MM.state.selectedBoundary);
             return;
         }
     }
 
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         e.preventDefault();
         undo();
         return;
     }
 
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        if (jm && !jm.get_editable()) return;
+        if (MM.state.jm && !MM.state.jm.get_editable()) return;
         e.preventDefault();
         redo();
         return;
@@ -152,16 +152,16 @@ document.addEventListener('keydown', function (e) {
         return;
     }
 
-    if (!jm) return;
-    var selected = jm.get_selected_node();
+    if (!MM.state.jm) return;
+    var selected = MM.state.jm.get_selected_node();
     if (!selected) return;
 
-    if (!jm.get_editable() && (e.key === ' ' || e.key === 'Enter' || e.key === 'Tab' || e.key === 'Delete' || e.key === 'Backspace')) {
+    if (!MM.state.jm.get_editable() && (e.key === ' ' || e.key === 'Enter' || e.key === 'Tab' || e.key === 'Delete' || e.key === 'Backspace')) {
         return;
     }
 
     // Space key: Enter edit mode
-    if (e.key === ' ' && !isEditing) {
+    if (e.key === ' ' && !MM.state.isEditing) {
         e.preventDefault();
         enterEditMode(selected);
         return;
@@ -170,7 +170,7 @@ document.addEventListener('keydown', function (e) {
     // Enter key behavior depends on whether we're editing
     if (e.key === 'Enter') {
         e.preventDefault();
-        if (isEditing) {
+        if (MM.state.isEditing) {
             // Exit edit mode
             exitEditMode();
         } else {
@@ -199,7 +199,7 @@ document.addEventListener('keydown', function (e) {
                     linkedNodeId: selected.id
                 }));
             }
-            jm.remove_node(selected);
+            MM.state.jm.remove_node(selected);
 
             // Re-render braces in case deleted node was part of a summary
             renderSummaryBraces();
@@ -220,17 +220,17 @@ document.addEventListener('blur', function (e) {
 
 // Enter edit mode for a node
 function enterEditMode(node) {
-    if (!node || isEditing) return;
+    if (!node || MM.state.isEditing) return;
 
-    isEditing = true;
-    editingNodeId = node.id;
+    MM.state.isEditing = true;
+    MM.state.editingNodeId = node.id;
     removeCustomContextMenu();
 
     // Get the node element directly
     var nodeElement = document.querySelector('jmnode[nodeid="' + node.id + '"]');
     if (!nodeElement) {
-        isEditing = false;
-        editingNodeId = null;
+        MM.state.isEditing = false;
+        MM.state.editingNodeId = null;
         return;
     }
 
@@ -325,28 +325,28 @@ function enterEditMode(node) {
         e.stopPropagation();
         e.stopImmediatePropagation();
 
-        if (matchHotkey(e, hotkeyConfig.bold)) {
+        if (matchHotkey(e, MM.state.hotkeyConfig.bold)) {
             e.preventDefault();
             toggleWrapSelection(textarea, '<b>', '</b>');
             setTimeout(autoResize, 0);
             return false;
         }
 
-        if (matchHotkey(e, hotkeyConfig.italic)) {
+        if (matchHotkey(e, MM.state.hotkeyConfig.italic)) {
             e.preventDefault();
             toggleWrapSelection(textarea, '<i>', '</i>');
             setTimeout(autoResize, 0);
             return false;
         }
 
-        if (matchHotkey(e, hotkeyConfig.inline_code)) {
+        if (matchHotkey(e, MM.state.hotkeyConfig.inline_code)) {
             e.preventDefault();
             wrapSelectionAsEscapedHtml(textarea, '<code>', '</code>');
             setTimeout(autoResize, 0);
             return false;
         }
 
-        if (matchHotkey(e, hotkeyConfig.code_block)) {
+        if (matchHotkey(e, MM.state.hotkeyConfig.code_block)) {
             e.preventDefault();
             wrapSelectionAsEscapedHtml(textarea, '<pre><code>', '</code></pre>');
             setTimeout(autoResize, 0);
@@ -380,8 +380,8 @@ function enterEditMode(node) {
             nodeElement.style.width = '';
             nodeElement.style.height = '';
             nodeElement.style.padding = '';
-            isEditing = false;
-            editingNodeId = null;
+            MM.state.isEditing = false;
+            MM.state.editingNodeId = null;
             document.getElementById('jsmind_container').focus();
             return false;
         }
@@ -421,22 +421,22 @@ function enterEditMode(node) {
 
 // Exit edit mode
 function exitEditMode() {
-    if (!isEditing) return;
+    if (!MM.state.isEditing) return;
 
     removeCustomContextMenu();
 
     var inputBox = document.getElementById('input-box');
-    if (!inputBox || !editingNodeId) {
-        isEditing = false;
-        editingNodeId = null;
+    if (!inputBox || !MM.state.editingNodeId) {
+        MM.state.isEditing = false;
+        MM.state.editingNodeId = null;
         return;
     }
 
     var newText = escapeCodeTagsForDisplay(inputBox.value);
-    var node = jm.get_node(editingNodeId);
+    var node = MM.state.jm.get_node(MM.state.editingNodeId);
 
     if (node) {
-        var nodeElement = document.querySelector('jmnode[nodeid="' + editingNodeId + '"]');
+        var nodeElement = document.querySelector('jmnode[nodeid="' + MM.state.editingNodeId + '"]');
 
         if (nodeElement) {
             nodeElement.innerHTML = '';
@@ -451,15 +451,15 @@ function exitEditMode() {
             if (newText && newText.trim() !== '') {
                 // Convert newlines to <br> for display
                 var htmlText = newText.replace(/\r?\n/g, '<br>');
-                jm.update_node(editingNodeId, htmlText);
+                MM.state.jm.update_node(MM.state.editingNodeId, htmlText);
 
-                if (jm.view.opts.support_html) {
+                if (MM.state.jm.view.opts.support_html) {
                     nodeElement.innerHTML = htmlText;
                 } else {
                     nodeElement.textContent = htmlText;
                 }
             } else {
-                if (jm.view.opts.support_html) {
+                if (MM.state.jm.view.opts.support_html) {
                     nodeElement.innerHTML = node.topic;
                 } else {
                     nodeElement.textContent = node.topic;
@@ -468,8 +468,8 @@ function exitEditMode() {
         }
     }
 
-    isEditing = false;
-    editingNodeId = null;
+    MM.state.isEditing = false;
+    MM.state.editingNodeId = null;
 
     var container = document.getElementById('jsmind_container');
     if (container) container.focus();
@@ -491,7 +491,7 @@ function exitEditMode() {
 
 // Handle clicks during edit mode - capture phase to intercept early
 document.addEventListener('mousedown', function (e) {
-    if (isEditing && editingNodeId) {
+    if (MM.state.isEditing && MM.state.editingNodeId) {
         console.log('Mousedown in edit mode, target:', e.target);
 
         // Allow interacting with the formatting context menu without leaving edit mode.
@@ -502,7 +502,7 @@ document.addEventListener('mousedown', function (e) {
         }
 
         // Get the node element being edited
-        var node = jm.get_node(editingNodeId);
+        var node = MM.state.jm.get_node(MM.state.editingNodeId);
         if (node && node._data && node._data.view) {
             var nodeElement = node._data.view.element;
             console.log('Node element:', nodeElement);
@@ -530,7 +530,7 @@ document.addEventListener('mousedown', function (e) {
 
 // Also handle click events to prevent any unwanted behavior
 document.addEventListener('click', function (e) {
-    if (isEditing && editingNodeId) {
+    if (MM.state.isEditing && MM.state.editingNodeId) {
         // Allow clicking menu items without exiting edit mode.
         if (isInCustomContextMenu(e.target)) {
             e.stopPropagation();
@@ -538,7 +538,7 @@ document.addEventListener('click', function (e) {
             return;
         }
 
-        var node = jm.get_node(editingNodeId);
+        var node = MM.state.jm.get_node(MM.state.editingNodeId);
         if (node && node._data && node._data.view) {
             var nodeElement = node._data.view.element;
 
@@ -560,7 +560,7 @@ document.addEventListener('click', function (e) {
 // Regular click handler for non-editing mode
 document.addEventListener('click', function (e) {
     // Don't interfere if editing
-    if (isEditing) {
+    if (MM.state.isEditing) {
         return;
     }
 
@@ -574,7 +574,7 @@ document.addEventListener('click', function (e) {
 
 // While editing a node, right-click anywhere should show formatting options (instead of node actions).
 document.addEventListener('contextmenu', function (e) {
-    if (!isEditing || !editingNodeId) return;
+    if (!MM.state.isEditing || !MM.state.editingNodeId) return;
 
     var textarea = document.getElementById('input-box');
     if (!textarea) return;

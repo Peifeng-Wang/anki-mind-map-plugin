@@ -17,7 +17,7 @@ function initEditor(data) {
             };
         }
 
-        jm = new jsMind({
+        MM.state.jm = new jsMind({
             container: 'jsmind_container',
             theme: 'modern-premium',
             editable: true,
@@ -30,7 +30,7 @@ function initEditor(data) {
             shortcut: { enable: false }
         });
 
-        jm.add_event_listener(function (type, data) {
+        MM.state.jm.add_event_listener(function (type, data) {
             if (type === 3) {
                 console.log('Detected change...');
                 window.saveHistory();
@@ -38,12 +38,12 @@ function initEditor(data) {
             }
         });
 
-        jm.show(data);
+        MM.state.jm.show(data);
         saveHistory();
         migrateLegacyCustomNodesIntoJsMindNodes();
 
         if (data.data && data.data.id) {
-            jm.select_node(data.data.id);
+            MM.state.jm.select_node(data.data.id);
         }
 
         // Create overlay layers early so zoom changes keep them in sync.
@@ -70,7 +70,7 @@ function initEditor(data) {
 
         // Load brace color from config if available
         if (typeof braceColorFromPython !== 'undefined') {
-            braceColor = braceColorFromPython;
+            MM.state.braceColor = braceColorFromPython;
         }
 
         // Load floating nodes if they exist
@@ -82,7 +82,7 @@ function initEditor(data) {
 
         // Load summary braces if they exist
         if (data.summaryBraces && Array.isArray(data.summaryBraces)) {
-            summaryBraces = data.summaryBraces;
+            MM.state.summaryBraces = data.summaryBraces;
             setTimeout(function () {
                 renderSummaryBraces();
                 markSummaryNodes();
@@ -91,10 +91,10 @@ function initEditor(data) {
 
         // Load boundaries if they exist
         if (data.boundaries && Array.isArray(data.boundaries)) {
-            boundaries = data.boundaries;
+            MM.state.boundaries = data.boundaries;
             // Load boundary color from config if available
             if (typeof boundaryColorFromPython !== 'undefined') {
-                boundaryColor = boundaryColorFromPython;
+                MM.state.boundaryColor = boundaryColorFromPython;
             }
             setTimeout(function () {
                 renderBoundaries();
@@ -102,34 +102,34 @@ function initEditor(data) {
         }
 
         function scheduleOverlayRerender() {
-            if (overlayRenderTimer) {
-                clearTimeout(overlayRenderTimer);
-                overlayRenderTimer = null;
+            if (MM.state.overlayRenderTimer) {
+                clearTimeout(MM.state.overlayRenderTimer);
+                MM.state.overlayRenderTimer = null;
             }
-            if (overlayRenderRaf) {
-                cancelAnimationFrame(overlayRenderRaf);
-                overlayRenderRaf = null;
+            if (MM.state.overlayRenderRaf) {
+                cancelAnimationFrame(MM.state.overlayRenderRaf);
+                MM.state.overlayRenderRaf = null;
             }
-            if (overlayRenderTimer2) {
-                clearTimeout(overlayRenderTimer2);
-                overlayRenderTimer2 = null;
+            if (MM.state.overlayRenderTimer2) {
+                clearTimeout(MM.state.overlayRenderTimer2);
+                MM.state.overlayRenderTimer2 = null;
             }
-            if (overlayRenderRaf2) {
-                cancelAnimationFrame(overlayRenderRaf2);
-                overlayRenderRaf2 = null;
+            if (MM.state.overlayRenderRaf2) {
+                cancelAnimationFrame(MM.state.overlayRenderRaf2);
+                MM.state.overlayRenderRaf2 = null;
             }
 
             // Defer to the next frame so zoom/style updates have settled.
-            overlayRenderTimer = setTimeout(function () {
-                overlayRenderRaf = requestAnimationFrame(function () {
+            MM.state.overlayRenderTimer = setTimeout(function () {
+                MM.state.overlayRenderRaf = requestAnimationFrame(function () {
                     renderSummaryBraces();
                     renderBoundaries();
                 });
             }, 0);
 
             // Qt WebEngine can apply style.zoom asynchronously at extreme values; do a second pass after a short delay.
-            overlayRenderTimer2 = setTimeout(function () {
-                overlayRenderRaf2 = requestAnimationFrame(function () {
+            MM.state.overlayRenderTimer2 = setTimeout(function () {
+                MM.state.overlayRenderRaf2 = requestAnimationFrame(function () {
                     renderSummaryBraces();
                     renderBoundaries();
                 });
@@ -137,7 +137,7 @@ function initEditor(data) {
         }
 
         // Re-render braces when layout changes
-        jm.add_event_listener(function (type, data) {
+        MM.state.jm.add_event_listener(function (type, data) {
             if (type === 1 || type === 2) { // show or resize events
                 scheduleOverlayRerender();
             }

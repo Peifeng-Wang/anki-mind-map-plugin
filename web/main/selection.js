@@ -14,47 +14,47 @@ function setupMultiSelection() {
 
     container.addEventListener('mousedown', function (e) {
         if (e.button === 2 && e.ctrlKey) {
-            isSelecting = true;
-            selectionStart = { x: e.clientX, y: e.clientY };
+            MM.state.isSelecting = true;
+            MM.state.selectionStart = { x: e.clientX, y: e.clientY };
 
-            if (!selectionBox) {
-                selectionBox = document.createElement('div');
-                selectionBox.style.cssText = 'position:fixed; border:2px dashed #4dc4ff; background:rgba(77,196,255,0.1); pointer-events:none; z-index:9999;';
-                document.body.appendChild(selectionBox);
+            if (!MM.state.selectionBox) {
+                MM.state.selectionBox = document.createElement('div');
+                MM.state.selectionBox.style.cssText = 'position:fixed; border:2px dashed #4dc4ff; background:rgba(77,196,255,0.1); pointer-events:none; z-index:9999;';
+                document.body.appendChild(MM.state.selectionBox);
             }
 
-            selectionBox.style.left = e.clientX + 'px';
-            selectionBox.style.top = e.clientY + 'px';
-            selectionBox.style.width = '0px';
-            selectionBox.style.height = '0px';
-            selectionBox.style.display = 'block';
+            MM.state.selectionBox.style.left = e.clientX + 'px';
+            MM.state.selectionBox.style.top = e.clientY + 'px';
+            MM.state.selectionBox.style.width = '0px';
+            MM.state.selectionBox.style.height = '0px';
+            MM.state.selectionBox.style.display = 'block';
 
             e.preventDefault();
         }
     });
 
     document.addEventListener('mousemove', function (e) {
-        if (isSelecting && selectionBox) {
-            var width = Math.abs(e.clientX - selectionStart.x);
-            var height = Math.abs(e.clientY - selectionStart.y);
-            var left = Math.min(e.clientX, selectionStart.x);
-            var top = Math.min(e.clientY, selectionStart.y);
+        if (MM.state.isSelecting && MM.state.selectionBox) {
+            var width = Math.abs(e.clientX - MM.state.selectionStart.x);
+            var height = Math.abs(e.clientY - MM.state.selectionStart.y);
+            var left = Math.min(e.clientX, MM.state.selectionStart.x);
+            var top = Math.min(e.clientY, MM.state.selectionStart.y);
 
-            selectionBox.style.left = left + 'px';
-            selectionBox.style.top = top + 'px';
-            selectionBox.style.width = width + 'px';
-            selectionBox.style.height = height + 'px';
+            MM.state.selectionBox.style.left = left + 'px';
+            MM.state.selectionBox.style.top = top + 'px';
+            MM.state.selectionBox.style.width = width + 'px';
+            MM.state.selectionBox.style.height = height + 'px';
         }
     });
 
     document.addEventListener('mouseup', function (e) {
-        if (isSelecting) {
-            isSelecting = false;
-            if (selectionBox) {
-                selectionBox.style.display = 'none';
+        if (MM.state.isSelecting) {
+            MM.state.isSelecting = false;
+            if (MM.state.selectionBox) {
+                MM.state.selectionBox.style.display = 'none';
             }
 
-            selectNodesInBox(selectionStart.x, selectionStart.y, e.clientX, e.clientY);
+            selectNodesInBox(MM.state.selectionStart.x, MM.state.selectionStart.y, e.clientX, e.clientY);
         }
     });
 }
@@ -72,24 +72,24 @@ function selectNodesInBox(x1, y1, x2, y2) {
         if (rect.left >= minX && rect.right <= maxX &&
             rect.top >= minY && rect.bottom <= maxY) {
             node.classList.add('selected-multi');
-            selectedNodes.push(node);
+            MM.state.selectedNodes.push(node);
         }
     });
 }
 
 function clearSelection() {
-    selectedNodes.forEach(function (node) {
+    MM.state.selectedNodes.forEach(function (node) {
         node.classList.remove('selected-multi');
     });
-    selectedNodes = [];
+    MM.state.selectedNodes = [];
 
     // Also deselect any selected boundary
-    if (selectedBoundary) {
+    if (MM.state.selectedBoundary) {
         var selectedBoundaryElem = document.querySelector('.boundary-box.selected');
         if (selectedBoundaryElem) {
             selectedBoundaryElem.classList.remove('selected');
         }
-        selectedBoundary = null;
+        MM.state.selectedBoundary = null;
     }
 }
 
@@ -104,7 +104,7 @@ function setupShiftClickSelection() {
     container.addEventListener('mousedown', function (e) {
         // Only handle shift+click on nodes
         if (!e.shiftKey) return;
-        if (isEditing) return;
+        if (MM.state.isEditing) return;
         if (e.button !== 0) return; // Only left click
 
         var nodeElement = e.target.closest('jmnode');
@@ -128,7 +128,7 @@ function setupShiftClickSelection() {
     // Also handle click to ensure selection works
     container.addEventListener('click', function (e) {
         if (!e.shiftKey) return;
-        if (isEditing) return;
+        if (MM.state.isEditing) return;
 
         var nodeElement = e.target.closest('jmnode');
         if (!nodeElement) return;
@@ -150,17 +150,17 @@ function addToMultiSelection(nodeElement) {
     if (nodeElement.classList.contains('selected-multi')) {
         // Remove from selection
         nodeElement.classList.remove('selected-multi');
-        var idx = selectedNodes.indexOf(nodeElement);
-        if (idx > -1) selectedNodes.splice(idx, 1);
+        var idx = MM.state.selectedNodes.indexOf(nodeElement);
+        if (idx > -1) MM.state.selectedNodes.splice(idx, 1);
     } else {
         // Add to selection
         nodeElement.classList.add('selected-multi');
-        if (selectedNodes.indexOf(nodeElement) === -1) {
-            selectedNodes.push(nodeElement);
+        if (MM.state.selectedNodes.indexOf(nodeElement) === -1) {
+            MM.state.selectedNodes.push(nodeElement);
         }
     }
 
-    console.log('Multi-selection count:', selectedNodes.length);
+    console.log('Multi-selection count:', MM.state.selectedNodes.length);
 }
 
 // Check if selected nodes are valid for summary (siblings only, no consecutive requirement)

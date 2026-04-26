@@ -1,22 +1,22 @@
 function reloadMapData(data) {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
     try {
         console.log('Reloading map with fresh data...');
         console.log('Data nodes count:', data.data ? countNodes(data.data) : 0);
 
         // Save current selected node
-        var selectedNode = jm.get_selected_node();
+        var selectedNode = MM.state.jm.get_selected_node();
         var selectedId = selectedNode ? selectedNode.id : null;
 
         // Save current scroll position
-        var container = jm.view.e_panel;
+        var container = MM.state.jm.view.e_panel;
         var scrollLeft = container ? container.scrollLeft : 0;
         var scrollTop = container ? container.scrollTop : 0;
         console.log('Saved scroll position:', scrollLeft, scrollTop);
 
         // Reload the data
-        jm.show(data);
+        MM.state.jm.show(data);
 
         // Re-setup the update_node override after reload
         installUpdateNodeTracking('Node changed after reload:');
@@ -30,9 +30,9 @@ function reloadMapData(data) {
 
         // Restore selection only if there was a selected node
         if (selectedId) {
-            var node = jm.get_node(selectedId);
+            var node = MM.state.jm.get_node(selectedId);
             if (node) {
-                jm.select_node(selectedId);
+                MM.state.jm.select_node(selectedId);
                 console.log('Restored selection:', selectedId);
             }
         }

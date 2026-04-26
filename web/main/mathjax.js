@@ -19,7 +19,7 @@ function renderMath() {
 
 // Mark nodes that are linked to Anki cards or other mind maps
 function markLinkedNodes() {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
     try {
         var allNodes = document.querySelectorAll('jmnode');
@@ -27,7 +27,7 @@ function markLinkedNodes() {
             var nodeId = nodeElement.getAttribute('nodeid');
             if (!nodeId) return;
 
-            var node = jm.get_node(nodeId);
+            var node = MM.state.jm.get_node(nodeId);
             if (!node) return;
 
             // Check if node has a linked card (noteId in node.data)

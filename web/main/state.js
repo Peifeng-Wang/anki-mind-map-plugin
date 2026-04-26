@@ -1,43 +1,65 @@
-var jm = null;
-var autoSaveTimeout = null;
-var autoSaveDelay = 2000;
+window.MM = window.MM || {};
 
-var mindMapHistory = [];
-var mindMapHistoryIndex = -1;
-var maxHistory = 50;
-var mindMapHistoryStateStrings = [];
+MM.state = {
+    jm: null,
+    autoSaveTimeout: null,
+    autoSaveDelay: 2000,
 
-var selectedNodes = [];
-var isEditing = false;
-var editingNodeId = null;
-var selectionBox = null;
-var isSelecting = false;
-var selectionStart = { x: 0, y: 0 };
+    mindMapHistory: [],
+    mindMapHistoryIndex: -1,
+    maxHistory: 50,
+    mindMapHistoryStateStrings: [],
 
-var arrows = [];
-var arrowMode = false;
-var arrowStart = null;
+    selectedNodes: [],
+    isEditing: false,
+    editingNodeId: null,
+    selectionBox: null,
+    isSelecting: false,
+    selectionStart: { x: 0, y: 0 },
 
-// Floating nodes (nodes without parent)
-var floatingNodes = [];
-var floatingNodeIdPrefix = 'floating_';
+    arrows: [],
+    arrowMode: false,
+    arrowStart: null,
 
-// Summary braces data
-var summaryBraces = [];
-var summaryBraceIdPrefix = 'summary_';
-var braceColor = '#3b82f6';
+    // Floating nodes (nodes without parent)
+    floatingNodes: [],
+    floatingNodeIdPrefix: 'floating_',
+    selectedFloatingNode: null,
 
-// Boundary data
-var boundaries = [];
-var boundaryIdPrefix = 'boundary_';
-var boundaryColor = '#ef4444';
-var selectedBoundary = null;
+    // Summary braces data
+    summaryBraces: [],
+    summaryBraceIdPrefix: 'summary_',
+    braceColor: '#3b82f6',
 
-// Track changed node IDs (for syncing to cards)
-var changedNodes = new Set();
-var overlayRenderTimer = null;
-var overlayRenderRaf = null;
-var overlayRenderTimer2 = null;
-var overlayRenderRaf2 = null;
-var scrollToNodeAnimToken = 0;
-var scrollToNodeAnimRaf = null;
+    // Boundary data
+    boundaries: [],
+    boundaryIdPrefix: 'boundary_',
+    boundaryColor: '#ef4444',
+    selectedBoundary: null,
+
+    // Track changed node IDs (for syncing to cards)
+    changedNodes: new Set(),
+    overlayRenderTimer: null,
+    overlayRenderRaf: null,
+    overlayRenderTimer2: null,
+    overlayRenderRaf2: null,
+    scrollToNodeAnimToken: 0,
+    scrollToNodeAnimRaf: null,
+
+    // Hotkey configuration (defaults; merged with values from Python after main_js loads)
+    hotkeyConfig: {
+        save: 'Ctrl+S',
+        refresh: 'F5',
+        focus_root: 'Ctrl+R',
+        create_summary: 'Ctrl+Shift+S',
+        create_boundary: 'Ctrl+Shift+B',
+        bold: 'Ctrl+B',
+        italic: 'Ctrl+I',
+        inline_code: 'Ctrl+`',
+        code_block: 'Ctrl+Shift+`',
+        toggle_collapse: '`'
+    },
+
+    // Pending callback for map selection
+    pendingMapLinkCallback: null
+};

@@ -341,8 +341,8 @@ def build_editor_html(dialog, config, data_json, focus_node_id):
 
         if (hotkeyConfigFromPython && Object.keys(hotkeyConfigFromPython).length > 0) {{
             // Merge user config with defaults so new hotkeys get sensible fallbacks.
-            hotkeyConfig = Object.assign({{}}, hotkeyConfig, hotkeyConfigFromPython);
-            console.log("Loaded hotkey config:", hotkeyConfig);
+            MM.state.hotkeyConfig = Object.assign({{}}, MM.state.hotkeyConfig, hotkeyConfigFromPython);
+            console.log("Loaded hotkey config:", MM.state.hotkeyConfig);
         }}
 
         // Inject data directly

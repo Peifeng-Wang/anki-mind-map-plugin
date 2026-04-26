@@ -1,5 +1,5 @@
 function validateBoundarySelection() {
-    if (selectedNodes.length === 0) {
+    if (MM.state.selectedNodes.length === 0) {
         return { valid: false, reason: 'Select at least 1 node' };
     }
 
@@ -7,9 +7,9 @@ function validateBoundarySelection() {
     var nodes = [];
     var parentId = null;
 
-    for (var i = 0; i < selectedNodes.length; i++) {
-        var nodeId = selectedNodes[i].getAttribute('nodeid');
-        var node = jm.get_node(nodeId);
+    for (var i = 0; i < MM.state.selectedNodes.length; i++) {
+        var nodeId = MM.state.selectedNodes[i].getAttribute('nodeid');
+        var node = MM.state.jm.get_node(nodeId);
 
         if (!node) return { valid: false, reason: 'Invalid node' };
         if (node.isroot) return { valid: false, reason: 'Cannot include root' };
@@ -20,7 +20,7 @@ function validateBoundarySelection() {
         }
 
         // For multiple nodes, check they share same parent
-        if (selectedNodes.length > 1) {
+        if (MM.state.selectedNodes.length > 1) {
             if (parentId === null) {
                 parentId = node.parent;
             } else if (node.parent !== parentId) {
@@ -39,8 +39,8 @@ function validateBoundarySelection() {
 
 // Check if there is already a special boundary in the map
 function hasSpecialBoundary() {
-    for (var i = 0; i < boundaries.length; i++) {
-        if (boundaries[i].isSpecial) {
+    for (var i = 0; i < MM.state.boundaries.length; i++) {
+        if (MM.state.boundaries[i].isSpecial) {
             return true;
         }
     }
@@ -49,8 +49,8 @@ function hasSpecialBoundary() {
 
 // Create a boundary for selected nodes
 function createBoundary() {
-    if (!jm) return;
-    if (jm && !jm.get_editable()) {
+    if (!MM.state.jm) return;
+    if (MM.state.jm && !MM.state.jm.get_editable()) {
         showToast('Read-only mode');
         return;
     }
@@ -66,12 +66,12 @@ function createBoundary() {
 
     // Create boundary data
     var boundaryData = {
-        id: boundaryIdPrefix + Date.now(),
+        id: MM.state.boundaryIdPrefix + Date.now(),
         nodeIds: nodeIds,
-        color: boundaryColor,
+        color: MM.state.boundaryColor,
         isSpecial: false  // Default not special
     };
-    boundaries.push(boundaryData);
+    MM.state.boundaries.push(boundaryData);
 
     // Clear selection
     clearSelection();
@@ -95,10 +95,10 @@ function toggleBoundarySpecial(boundaryData) {
     // If setting as special, check if there's already a special boundary
     if (!boundaryData.isSpecial) {
         // Unset any existing special boundary
-        for (var i = 0; i < boundaries.length; i++) {
-            if (boundaries[i].isSpecial && boundaries[i].id !== boundaryData.id) {
-                boundaries[i].isSpecial = false;
-                boundaries[i].color = boundaryColor; // Reset to default color
+        for (var i = 0; i < MM.state.boundaries.length; i++) {
+            if (MM.state.boundaries[i].isSpecial && MM.state.boundaries[i].id !== boundaryData.id) {
+                MM.state.boundaries[i].isSpecial = false;
+                MM.state.boundaries[i].color = MM.state.boundaryColor; // Reset to default color
             }
         }
     }
@@ -112,7 +112,7 @@ function toggleBoundarySpecial(boundaryData) {
         boundaryData.color = 'url(#red-blue-stripe)';
     } else {
         // Reset to default color
-        boundaryData.color = boundaryColor;
+        boundaryData.color = MM.state.boundaryColor;
     }
     
     // Re-render boundaries
@@ -134,7 +134,7 @@ function renderBoundaries() {
     var existingDefs = document.querySelector('#boundary-patterns');
     if (existingDefs) existingDefs.remove();
 
-    if (!jm || !jm.view) return;
+    if (!MM.state.jm || !MM.state.jm.view) return;
 
     var container = document.getElementById('jsmind_container');
     if (!container) return;
@@ -180,9 +180,9 @@ function renderBoundaries() {
     panel.appendChild(svgDefs);
 
     // Filter out invalid boundaries
-    boundaries = boundaries.filter(function (boundaryData) {
+    MM.state.boundaries = MM.state.boundaries.filter(function (boundaryData) {
         var validNodes = boundaryData.nodeIds.filter(function (id) {
-            return jm.get_node(id) !== null;
+            return MM.state.jm.get_node(id) !== null;
         });
         if (validNodes.length === 0) {
             return false;
@@ -192,7 +192,7 @@ function renderBoundaries() {
     });
 
     // Sort boundaries by size (smaller/inner first)
-    var sortedBoundaries = boundaries.slice().sort(function (a, b) {
+    var sortedBoundaries = MM.state.boundaries.slice().sort(function (a, b) {
         return a.nodeIds.length - b.nodeIds.length;
     });
 
@@ -231,12 +231,12 @@ function calculateBoundaryBBox(nodeIds) {
 
     // Process each node in the boundary
     for (var i = 0; i < nodeIds.length; i++) {
-        var node = jm.get_node(nodeIds[i]);
+        var node = MM.state.jm.get_node(nodeIds[i]);
         getNodeBounds(node);
     }
 
     // Check for summary braces that might be attached to these nodes
-    summaryBraces.forEach(function (braceData) {
+    MM.state.summaryBraces.forEach(function (braceData) {
         // Check if any summarized nodes are in our boundary
         var hasOverlap = braceData.summarizedNodeIds.some(function (id) {
             return nodeIds.indexOf(id) !== -1;
@@ -334,7 +334,7 @@ function renderSingleBoundary(boundaryData, panel, container, boundaryLayer) {
         strokeRect.setAttribute('stroke-dasharray', '6,3');
         fillRect.setAttribute('fill', 'rgba(239, 68, 68, 0.1)'); // Light red background
     } else {
-        strokeRect.setAttribute('stroke', boundaryData.color || boundaryColor);
+        strokeRect.setAttribute('stroke', boundaryData.color || MM.state.boundaryColor);
         strokeRect.setAttribute('stroke-width', '2.5');
         strokeRect.setAttribute('stroke-dasharray', '8,4');
         fillRect.setAttribute('fill', 'rgba(239, 68, 68, 0.05)');
@@ -370,22 +370,22 @@ function selectBoundary(boundaryData, svgElement) {
     }
 
     // Select this boundary
-    selectedBoundary = boundaryData;
+    MM.state.selectedBoundary = boundaryData;
     svgElement.classList.add('selected');
 
     // Deselect jsMind nodes
-    if (jm) jm.select_clear();
+    if (MM.state.jm) MM.state.jm.select_clear();
     clearSelection();
 }
 
 // Delete a boundary
 function deleteBoundary(boundaryData) {
-    var idx = boundaries.indexOf(boundaryData);
+    var idx = MM.state.boundaries.indexOf(boundaryData);
     if (idx > -1) {
-        boundaries.splice(idx, 1);
+        MM.state.boundaries.splice(idx, 1);
     }
 
-    selectedBoundary = null;
+    MM.state.selectedBoundary = null;
     renderBoundaries();
     saveHistory();
     scheduleAutoSave();

@@ -1,17 +1,3 @@
-var hotkeyConfig = {
-    save: 'Ctrl+S',
-    refresh: 'F5',
-    focus_root: 'Ctrl+R',
-    create_summary: 'Ctrl+Shift+S',
-    create_boundary: 'Ctrl+Shift+B',
-    bold: 'Ctrl+B',
-    italic: 'Ctrl+I',
-    inline_code: 'Ctrl+`',
-    code_block: 'Ctrl+Shift+`',
-    toggle_collapse: '`'
-};
-
-
 // Match hotkey event against config string
 function matchHotkey(e, hotkeyString) {
     if (!hotkeyString) return false;

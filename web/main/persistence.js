@@ -1,15 +1,15 @@
 window.saveHistory = function () {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
     try {
-        if (!Array.isArray(mindMapHistory)) {
-            mindMapHistory = [];
-            mindMapHistoryStateStrings = [];
-            mindMapHistoryIndex = -1;
+        if (!Array.isArray(MM.state.mindMapHistory)) {
+            MM.state.mindMapHistory = [];
+            MM.state.mindMapHistoryStateStrings = [];
+            MM.state.mindMapHistoryIndex = -1;
         }
 
-        var mindMapData = jm.get_data('node_tree');
-        var floatingData = floatingNodes.map(function (n) {
+        var mindMapData = MM.state.jm.get_data('node_tree');
+        var floatingData = MM.state.floatingNodes.map(function (n) {
             return { id: n.id, topic: n.topic, x: n.x, y: n.y };
         });
 
@@ -19,31 +19,31 @@ window.saveHistory = function () {
         };
         var currentStateStr = JSON.stringify(currentState);
 
-        if (mindMapHistoryIndex >= 0 && mindMapHistory[mindMapHistoryIndex]) {
-            var lastStateStr = mindMapHistoryStateStrings[mindMapHistoryIndex];
+        if (MM.state.mindMapHistoryIndex >= 0 && MM.state.mindMapHistory[MM.state.mindMapHistoryIndex]) {
+            var lastStateStr = MM.state.mindMapHistoryStateStrings[MM.state.mindMapHistoryIndex];
             if (typeof lastStateStr !== 'string') {
-                lastStateStr = JSON.stringify(mindMapHistory[mindMapHistoryIndex]);
-                mindMapHistoryStateStrings[mindMapHistoryIndex] = lastStateStr;
+                lastStateStr = JSON.stringify(MM.state.mindMapHistory[MM.state.mindMapHistoryIndex]);
+                MM.state.mindMapHistoryStateStrings[MM.state.mindMapHistoryIndex] = lastStateStr;
             }
             if (currentStateStr === lastStateStr) return;
         }
 
-        if (mindMapHistoryIndex < mindMapHistory.length - 1) {
-            mindMapHistory = mindMapHistory.slice(0, mindMapHistoryIndex + 1);
-            mindMapHistoryStateStrings = mindMapHistoryStateStrings.slice(0, mindMapHistoryIndex + 1);
+        if (MM.state.mindMapHistoryIndex < MM.state.mindMapHistory.length - 1) {
+            MM.state.mindMapHistory = MM.state.mindMapHistory.slice(0, MM.state.mindMapHistoryIndex + 1);
+            MM.state.mindMapHistoryStateStrings = MM.state.mindMapHistoryStateStrings.slice(0, MM.state.mindMapHistoryIndex + 1);
         }
 
-        mindMapHistory.push(JSON.parse(currentStateStr));
-        mindMapHistoryStateStrings.push(currentStateStr);
+        MM.state.mindMapHistory.push(JSON.parse(currentStateStr));
+        MM.state.mindMapHistoryStateStrings.push(currentStateStr);
 
-        if (mindMapHistory.length > maxHistory) {
-            mindMapHistory.shift();
-            mindMapHistoryStateStrings.shift();
+        if (MM.state.mindMapHistory.length > MM.state.maxHistory) {
+            MM.state.mindMapHistory.shift();
+            MM.state.mindMapHistoryStateStrings.shift();
         } else {
-            mindMapHistoryIndex++;
+            MM.state.mindMapHistoryIndex++;
         }
 
-        console.log("History saved. Total steps: " + mindMapHistory.length);
+        console.log("History saved. Total steps: " + MM.state.mindMapHistory.length);
     } catch (e) {
         console.error("Error saving history:", e);
     }
@@ -53,19 +53,19 @@ function restoreState(state) {
     if (!state) return;
     console.log("Restoring state...");
 
-    var panel = jm.view.e_panel;
+    var panel = MM.state.jm.view.e_panel;
 
     var lastScrollX = panel.scrollLeft;
     var lastScrollY = panel.scrollTop;
 
-    var selectedNode = jm.get_selected_node();
+    var selectedNode = MM.state.jm.get_selected_node();
     var lastSelectedId = selectedNode ? selectedNode.id : null;
 
     if (state.mind) {
-        jm.show(state.mind);
+        MM.state.jm.show(state.mind);
     }
 
-    floatingNodes = [];
+    MM.state.floatingNodes = [];
     var container = document.getElementById('jsmind_container');
     var oldNodes = container.querySelectorAll('jmnode[nodeid^="floating_"]');
     oldNodes.forEach(function (el) { el.remove(); });
@@ -82,22 +82,22 @@ function restoreState(state) {
     }
 
     if (lastSelectedId) {
-        var node = jm.get_node(lastSelectedId);
+        var node = MM.state.jm.get_node(lastSelectedId);
         if (node) {
-            jm.select_node(lastSelectedId);
+            MM.state.jm.select_node(lastSelectedId);
         } else {
-            jm.select_clear();
+            MM.state.jm.select_clear();
         }
     } else {
-        jm.select_clear();
+        MM.state.jm.select_clear();
     }
 }
 
 window.undo = function () {
-    console.log("Undo trigger received. Index: " + mindMapHistoryIndex);
-    if (mindMapHistoryIndex > 0) {
-        mindMapHistoryIndex--;
-        restoreState(mindMapHistory[mindMapHistoryIndex]);
+    console.log("Undo trigger received. Index: " + MM.state.mindMapHistoryIndex);
+    if (MM.state.mindMapHistoryIndex > 0) {
+        MM.state.mindMapHistoryIndex--;
+        restoreState(MM.state.mindMapHistory[MM.state.mindMapHistoryIndex]);
         scheduleAutoSave();
     } else {
         console.log("Nothing to undo");
@@ -105,26 +105,26 @@ window.undo = function () {
 };
 
 window.redo = function () {
-    console.log("Redo trigger received. Index: " + mindMapHistoryIndex);
-    if (mindMapHistoryIndex < mindMapHistory.length - 1) {
-        mindMapHistoryIndex++;
-        restoreState(mindMapHistory[mindMapHistoryIndex]);
+    console.log("Redo trigger received. Index: " + MM.state.mindMapHistoryIndex);
+    if (MM.state.mindMapHistoryIndex < MM.state.mindMapHistory.length - 1) {
+        MM.state.mindMapHistoryIndex++;
+        restoreState(MM.state.mindMapHistory[MM.state.mindMapHistoryIndex]);
         scheduleAutoSave();
     }
 };
 
 function scheduleAutoSave() {
-    if (autoSaveTimeout) {
-        clearTimeout(autoSaveTimeout);
+    if (MM.state.autoSaveTimeout) {
+        clearTimeout(MM.state.autoSaveTimeout);
     }
 
-    autoSaveTimeout = setTimeout(function () {
+    MM.state.autoSaveTimeout = setTimeout(function () {
         autoSave();
-    }, autoSaveDelay);
+    }, MM.state.autoSaveDelay);
 }
 
 function collectFloatingNodesData() {
-    return floatingNodes.map(function (node) {
+    return MM.state.floatingNodes.map(function (node) {
         return {
             id: node.id,
             topic: node.topic,
@@ -136,8 +136,8 @@ function collectFloatingNodesData() {
 
 function collectChangedNodesData() {
     var changedNodesData = [];
-    changedNodes.forEach(function (nodeId) {
-        var node = jm.get_node(nodeId);
+    MM.state.changedNodes.forEach(function (nodeId) {
+        var node = MM.state.jm.get_node(nodeId);
         if (!node) return;
 
         // jsMind stores custom data in node.data
@@ -179,22 +179,22 @@ function collectChangedNodesData() {
 }
 
 function buildSavePayload() {
-    var mind_data = jm.get_data('node_tree');
+    var mind_data = MM.state.jm.get_data('node_tree');
     var container = document.getElementById('jsmind_container');
 
     return {
         data: mind_data,
         image_html: container ? container.innerHTML : "",
-        arrows: arrows,
+        arrows: MM.state.arrows,
         floatingNodes: collectFloatingNodesData(),
-        summaryBraces: summaryBraces,
-        boundaries: boundaries,
+        summaryBraces: MM.state.summaryBraces,
+        boundaries: MM.state.boundaries,
         changedNodes: collectChangedNodesData()
     };
 }
 
 function autoSave() {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
     try {
         var payload = buildSavePayload();
@@ -205,7 +205,7 @@ function autoSave() {
         pycmd("save:" + JSON.stringify(payload));
 
         // Clear change records
-        changedNodes.clear();
+        MM.state.changedNodes.clear();
 
         var status = document.getElementById('auto-save-status');
         if (status) {

@@ -1,21 +1,21 @@
 function addChild() {
-    if (!jm) return;
-    var selected = jm.get_selected_node();
+    if (!MM.state.jm) return;
+    var selected = MM.state.jm.get_selected_node();
     if (!selected) {
         alert("Please select a node first");
         return;
     }
     var newId = 'node_' + Date.now();
-    jm.add_node(selected, newId, 'New Child');
-    jm.select_node(newId);
+    MM.state.jm.add_node(selected, newId, 'New Child');
+    MM.state.jm.select_node(newId);
     setTimeout(renderMath, 300);
     saveHistory();
     scheduleAutoSave();
 }
 
 function addSibling() {
-    if (!jm) return;
-    var selected = jm.get_selected_node();
+    if (!MM.state.jm) return;
+    var selected = MM.state.jm.get_selected_node();
     if (!selected || selected.isroot) {
         alert("Cannot add sibling to root");
         return;
@@ -25,18 +25,18 @@ function addSibling() {
         showToast('Cannot add sibling to summary node');
         return;
     }
-    var parent = jm.get_node(selected.parent);
+    var parent = MM.state.jm.get_node(selected.parent);
     if (!parent) return;
     var newId = 'node_' + Date.now();
-    jm.add_node(parent, newId, 'New Sibling');
-    jm.select_node(newId);
+    MM.state.jm.add_node(parent, newId, 'New Sibling');
+    MM.state.jm.select_node(newId);
     setTimeout(renderMath, 300);
     saveHistory();
     scheduleAutoSave();
 }
 
 function saveMap() {
-    if (!jm) return;
+    if (!MM.state.jm) return;
     try {
         var payload = buildSavePayload();
 
@@ -46,7 +46,7 @@ function saveMap() {
 
 
         // Clear change records
-        changedNodes.clear();
+        MM.state.changedNodes.clear();
 
         var status = document.getElementById('auto-save-status');
         if (status) {
@@ -64,21 +64,21 @@ function saveMap() {
 
 // Center view on root node
 function centerRoot() {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
-    var root = jm.get_root();
+    var root = MM.state.jm.get_root();
     if (!root) return;
 
     // Select root node
-    jm.select_node(root);
+    MM.state.jm.select_node(root);
 
     // Use jsMind's built-in centering by calling show with keep_center=true
-    jm.view.show(true);
+    MM.state.jm.view.show(true);
 }
 
 // Refresh mind map data from database
 function refreshMap() {
-    if (!jm) return;
+    if (!MM.state.jm) return;
 
     console.log('Requesting data refresh...');
     // Request fresh data from Python

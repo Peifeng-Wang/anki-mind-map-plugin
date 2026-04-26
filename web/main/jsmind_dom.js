@@ -1,12 +1,12 @@
 function getJsMindPanelEl() {
-    if (jm && jm.view && jm.view.e_panel) return jm.view.e_panel;
+    if (MM.state.jm && MM.state.jm.view && MM.state.jm.view.e_panel) return MM.state.jm.view.e_panel;
     var container = document.getElementById('jsmind_container');
     if (!container) return null;
     return container.querySelector('.jsmind-inner');
 }
 
 function getJsMindNodesEl() {
-    if (jm && jm.view && jm.view.e_nodes) return jm.view.e_nodes;
+    if (MM.state.jm && MM.state.jm.view && MM.state.jm.view.e_nodes) return MM.state.jm.view.e_nodes;
     var panel = getJsMindPanelEl();
     if (!panel) return null;
     return panel.querySelector('jmnodes');
@@ -14,7 +14,7 @@ function getJsMindNodesEl() {
 
 // Older versions created extra <jmnodes> outside the jsMind panel; those won't be zoomed/scrolled correctly.
 function migrateLegacyCustomNodesIntoJsMindNodes() {
-    if (!jm) return;
+    if (!MM.state.jm) return;
     var container = document.getElementById('jsmind_container');
     if (!container) return;
     var nodesEl = getJsMindNodesEl();
@@ -31,7 +31,7 @@ function migrateLegacyCustomNodesIntoJsMindNodes() {
             var tag = n.tagName.toLowerCase();
             if (tag === 'jmnode') {
                 var id = n.getAttribute('nodeid') || '';
-                if (id.startsWith(floatingNodeIdPrefix) || id.startsWith(summaryBraceIdPrefix)) {
+                if (id.startsWith(MM.state.floatingNodeIdPrefix) || id.startsWith(MM.state.summaryBraceIdPrefix)) {
                     nodesEl.appendChild(n);
                 }
                 return;

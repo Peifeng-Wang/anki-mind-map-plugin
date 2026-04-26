@@ -29,10 +29,10 @@ function isVisibleForOverlay(elem) {
 }
 
 function isMindNodeVisible(node) {
-    if (!jm || !node) return false;
-    if (typeof jm.is_node_visible === 'function') {
+    if (!MM.state.jm || !node) return false;
+    if (typeof MM.state.jm.is_node_visible === 'function') {
         try {
-            return jm.is_node_visible(node);
+            return MM.state.jm.is_node_visible(node);
         } catch (e) {
             // fall through to DOM check
         }
@@ -58,7 +58,7 @@ function getNodeBoxFromView(node) {
 
 function getElementBoxFromClientRectInMap(elem) {
     if (!elem || !elem.isConnected) return null;
-    if (!jm || !jm.view) return null;
+    if (!MM.state.jm || !MM.state.jm.view) return null;
 
     var panel = getJsMindPanelEl();
     if (!panel) return null;
@@ -69,7 +69,7 @@ function getElementBoxFromClientRectInMap(elem) {
     var panelRect = panel.getBoundingClientRect();
     if (!panelRect) return null;
 
-    var z = (jm.view && jm.view.actualZoom) || 1;
+    var z = (MM.state.jm.view && MM.state.jm.view.actualZoom) || 1;
     if (!z) z = 1;
 
     // Screen = panel origin + (map * zoom - scroll). Solve for map.
@@ -102,8 +102,8 @@ function getOrCreateOverlayLayer(parent, layerId, zIndex, pointerEvents, setZoom
     // Keep in sync with current map zoom (newly-created layers won't be touched until the next zoom).
     // Note: if the layer is placed under an element that is already zoomed (e.g. under <jmnodes>),
     // setZoomOnLayer must be false to avoid double-scaling.
-    if (setZoomOnLayer && jm && jm.view && typeof jm.view.actualZoom === 'number') {
-        layer.style.zoom = jm.view.actualZoom;
+    if (setZoomOnLayer && MM.state.jm && MM.state.jm.view && typeof MM.state.jm.view.actualZoom === 'number') {
+        layer.style.zoom = MM.state.jm.view.actualZoom;
     } else {
         // Clear any stale zoom from older versions or mismatched callers.
         layer.style.zoom = '';
@@ -112,27 +112,27 @@ function getOrCreateOverlayLayer(parent, layerId, zIndex, pointerEvents, setZoom
 }
 
 function scheduleNodeEditAutoSave() {
-    if (autoSaveTimeout) {
-        clearTimeout(autoSaveTimeout);
+    if (MM.state.autoSaveTimeout) {
+        clearTimeout(MM.state.autoSaveTimeout);
     }
-    autoSaveTimeout = setTimeout(function () {
+    MM.state.autoSaveTimeout = setTimeout(function () {
         console.log('Auto-saving after node edit...');
         autoSave();
     }, 300);
 }
 
 function installUpdateNodeTracking(logPrefix) {
-    if (!jm || typeof jm.update_node !== 'function') return;
+    if (!MM.state.jm || typeof MM.state.jm.update_node !== 'function') return;
 
-    if (jm.update_node._ankiMindMapTracksChanges) {
-        jm.update_node._ankiMindMapLogPrefix = logPrefix;
+    if (MM.state.jm.update_node._ankiMindMapTracksChanges) {
+        MM.state.jm.update_node._ankiMindMapLogPrefix = logPrefix;
         return;
     }
 
-    var originalUpdateNode = jm.update_node;
+    var originalUpdateNode = MM.state.jm.update_node;
     var trackedUpdateNode = function (nodeid, topic) {
-        var result = originalUpdateNode.call(jm, nodeid, topic);
-        changedNodes.add(nodeid);
+        var result = originalUpdateNode.call(MM.state.jm, nodeid, topic);
+        MM.state.changedNodes.add(nodeid);
         console.log(trackedUpdateNode._ankiMindMapLogPrefix, nodeid, 'New topic:', topic);
         scheduleNodeEditAutoSave();
         return result;
@@ -141,6 +141,6 @@ function installUpdateNodeTracking(logPrefix) {
     trackedUpdateNode._ankiMindMapTracksChanges = true;
     trackedUpdateNode._ankiMindMapLogPrefix = logPrefix;
     trackedUpdateNode._ankiMindMapOriginal = originalUpdateNode;
-    jm.update_node = trackedUpdateNode;
+    MM.state.jm.update_node = trackedUpdateNode;
 }
 
