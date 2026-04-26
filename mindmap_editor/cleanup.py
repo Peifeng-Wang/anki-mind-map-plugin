@@ -2,7 +2,7 @@ import json
 import logging
 import re
 
-from .tree_utils import traverse_nodes, collect_node_info
+from .tree_utils import traverse_nodes, collect_node_info, remove_nodes_by_ids
 
 logger = logging.getLogger(__name__)
 
@@ -122,29 +122,6 @@ def remove_note_ids_from_nodes(root, orphaned_node_ids):
 
 def delete_orphaned_nodes_from_data(data, root, orphaned_node_ids):
     """Delete orphaned nodes from the tree. Returns number of deleted nodes."""
-    deleted_count = 0
-
-    # Iterative bottom-up rebuild of children lists
-    stack = [(root, False)]
-    while stack:
-        node, visited = stack.pop()
-        if not isinstance(node, dict):
-            continue
-        if not visited:
-            stack.append((node, True))
-            for child in node.get('children', []):
-                stack.append((child, False))
-        else:
-            children = node.get('children', [])
-            if children:
-                new_children = []
-                for child in children:
-                    if isinstance(child, dict) and child.get('id') in orphaned_node_ids:
-                        deleted_count += 1
-                        logger.info("Deleted orphaned node %s", child.get('id'))
-                    else:
-                        new_children.append(child)
-                if len(new_children) != len(children):
-                    node['children'] = new_children
-
-    return deleted_count
+    def _log(child):
+        logger.info("Deleted orphaned node %s", child.get('id'))
+    return remove_nodes_by_ids(root, set(orphaned_node_ids), on_delete=_log)

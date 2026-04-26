@@ -9,6 +9,11 @@ from .constants import DATA_NID_RE, LINK_HTML_TEMPLATE, _sync_flags
 from .mindmap_ops import find_parent_for_new_node, get_special_boundary_info
 from .utils import build_node_index, extract_first_line, find_node_by_id, get_root_node, parse_mindmap_link, select_link_field
 
+try:
+    from ..mindmap_editor.tree_utils import remove_nodes_by_ids
+except ImportError:
+    from mindmap_editor.tree_utils import remove_nodes_by_ids
+
 logger = logging.getLogger(__name__)
 
 
@@ -156,30 +161,11 @@ def delete_nodes_from_mindmap(mindmap_id, node_ids):
 
     data = json.loads(mindmap_note['Data'])
     root = get_root_node(data)
-    deleted_count = 0
 
-    # Iterative bottom-up rebuild of children lists
-    stack = [(root, False)]
-    while stack:
-        node, visited = stack.pop()
-        if not isinstance(node, dict):
-            continue
-        if not visited:
-            stack.append((node, True))
-            for child in node.get('children', []):
-                stack.append((child, False))
-        else:
-            children = node.get('children', [])
-            if children:
-                new_children = []
-                for child in children:
-                    if isinstance(child, dict) and child.get('id') in node_ids:
-                        deleted_count += 1
-                        logger.info("Deleted node %s from mindmap %s", child.get('id'), mindmap_id)
-                    else:
-                        new_children.append(child)
-                if len(new_children) != len(children):
-                    node['children'] = new_children
+    def _log(child):
+        logger.info("Deleted node %s from mindmap %s", child.get('id'), mindmap_id)
+
+    deleted_count = remove_nodes_by_ids(root, set(node_ids), on_delete=_log)
 
     if deleted_count > 0:
         mindmap_note['Data'] = json.dumps(data)

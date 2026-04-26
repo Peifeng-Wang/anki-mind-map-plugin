@@ -6,16 +6,16 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const draggableModuleFiles = [
-  'web/jsmind.draggable.options.js',
-  'web/jsmind.draggable.canvas.js',
-  'web/jsmind.draggable.highlight.js',
-  'web/jsmind.draggable.shadow.js',
-  'web/jsmind.draggable.timer.js',
-  'web/jsmind.draggable.lookup.js',
-  'web/jsmind.draggable.autoscroll.js',
-  'web/jsmind.draggable.move.js',
-  'web/jsmind.draggable.events.js',
-  'web/jsmind.draggable.core.js'
+  'web/vendor/jsmind/jsmind.draggable.options.js',
+  'web/vendor/jsmind/jsmind.draggable.canvas.js',
+  'web/vendor/jsmind/jsmind.draggable.highlight.js',
+  'web/vendor/jsmind/jsmind.draggable.shadow.js',
+  'web/vendor/jsmind/jsmind.draggable.timer.js',
+  'web/vendor/jsmind/jsmind.draggable.lookup.js',
+  'web/vendor/jsmind/jsmind.draggable.autoscroll.js',
+  'web/vendor/jsmind/jsmind.draggable.move.js',
+  'web/vendor/jsmind/jsmind.draggable.events.js',
+  'web/vendor/jsmind/jsmind.draggable.core.js'
 ];
 
 function file(relPath) {
@@ -27,10 +27,10 @@ function read(relPath) {
 }
 
 function readJsmindCssCascade() {
-  const entry = read('web/jsmind.css');
-  const imports = [...entry.matchAll(/@import\s+url\("\.\/styles\/(jsmind-[^"]+\.css)"\);/g)]
+  const entry = read('web/vendor/jsmind/jsmind.css');
+  const imports = [...entry.matchAll(/@import\s+url\("\.\/(jsmind-[^"]+\.css)"\);/g)]
     .map((match) => match[1]);
-  return imports.map((name) => read(`web/styles/${name}`)).join('\n');
+  return imports.map((name) => read(`web/vendor/jsmind/${name}`)).join('\n');
 }
 
 function readStyleCssCascade() {
@@ -121,8 +121,8 @@ function makeElement(id) {
 
 test('JavaScript files parse successfully', () => {
   [
-    'web/jsmind.js',
-    'web/jsmind.draggable.js',
+    'web/vendor/jsmind/jsmind.js',
+    'web/vendor/jsmind/jsmind.draggable.js',
     'web/main.js',
     'web/standalone_viewer/viewer.js',
     ...draggableModuleFiles,
@@ -144,11 +144,11 @@ test('main.js remains a compatibility loader for split editor modules', () => {
 });
 
 test('jsmind.draggable.js remains a compatibility loader for split draggable modules', () => {
-  const loader = read('web/jsmind.draggable.js');
+  const loader = read('web/vendor/jsmind/jsmind.draggable.js');
 
   assert.ok(loader.includes('document.write'), 'jsmind.draggable.js should synchronously load split modules');
   draggableModuleFiles.forEach((relPath) => {
-    assert.ok(loader.includes(relPath.replace('web/', '')), `${relPath} missing from loader`);
+    assert.ok(loader.includes(relPath.replace('web/vendor/jsmind/', '')), `${relPath} missing from loader`);
   });
 });
 
@@ -354,7 +354,7 @@ test('draggable helper methods preserve expected state transitions', () => {
 });
 
 test('jsMind internal helpers keep node resolution and editable semantics', () => {
-  const jsMind = require(file('web/jsmind.js'));
+  const jsMind = require(file('web/vendor/jsmind/jsmind.js'));
   const instance = Object.create(jsMind.prototype);
   const resolved = { id: 'found' };
   instance.get_node = function (id) {
@@ -384,7 +384,7 @@ test('jsMind internal helpers keep node resolution and editable semantics', () =
 });
 
 test('jsMind performance helpers keep equivalent lookup and clear behavior', () => {
-  const jsMindSource = read('web/jsmind.view-provider.js');
+  const jsMindSource = read('web/vendor/jsmind/jsmind.view-provider.js');
   assert.ok(jsMindSource.includes('this.e_svg.textContent = \'\';'), 'SVG clear should use batch textContent clearing');
   assert.ok(/get_binded_nodeid:\s*function \(element\) \{\s*while \(element != null\)/.test(jsMindSource),
     'get_binded_nodeid should use iterative parent lookup');
@@ -393,7 +393,7 @@ test('jsMind performance helpers keep equivalent lookup and clear behavior', () 
 });
 
 test('jsMind split modules preserve compatibility entry and public API', () => {
-  const entry = read('web/jsmind.js');
+  const entry = read('web/vendor/jsmind/jsmind.js');
   [
     'core',
     'model',
@@ -404,12 +404,12 @@ test('jsMind split modules preserve compatibility entry and public API', () => {
     'view-provider',
     'shortcut-plugin'
   ].forEach((name) => {
-    assert.ok(fs.existsSync(file(`web/jsmind.${name}.js`)), `missing split module ${name}`);
+    assert.ok(fs.existsSync(file(`web/vendor/jsmind/jsmind.${name}.js`)), `missing split module ${name}`);
     assert.ok(entry.includes(`'${name}'`), `entry should load ${name}`);
-    execFileSync(process.execPath, ['--check', file(`web/jsmind.${name}.js`)], { stdio: 'pipe' });
+    execFileSync(process.execPath, ['--check', file(`web/vendor/jsmind/jsmind.${name}.js`)], { stdio: 'pipe' });
   });
 
-  const jsMind = require(file('web/jsmind.js'));
+  const jsMind = require(file('web/vendor/jsmind/jsmind.js'));
   assert.strictEqual(typeof jsMind, 'function');
   assert.strictEqual(typeof jsMind.format.node_tree.get_mind, 'function');
   assert.strictEqual(typeof jsMind.util.json.merge, 'function');
@@ -439,8 +439,8 @@ test('main.js save refactor keeps expected structure', () => {
 });
 
 test('CSS refactors keep non-empty rules and selected override ordering', () => {
-  const jsmindEntry = read('web/jsmind.css');
-  const jsmindImports = [...jsmindEntry.matchAll(/@import\s+url\("\.\/styles\/(jsmind-[^"]+\.css)"\);/g)]
+  const jsmindEntry = read('web/vendor/jsmind/jsmind.css');
+  const jsmindImports = [...jsmindEntry.matchAll(/@import\s+url\("\.\/(jsmind-[^"]+\.css)"\);/g)]
     .map((match) => match[1]);
   assert.deepStrictEqual(jsmindImports, [
     'jsmind-base.css',

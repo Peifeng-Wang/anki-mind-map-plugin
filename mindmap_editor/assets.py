@@ -33,12 +33,15 @@ def read_assets(filenames):
 def read_css_entry(filename):
     """Inline split CSS imports because Anki embeds assets in a style tag."""
     content = read_asset(filename)
+    base_dir = os.path.dirname(filename)
     expanded = []
     for line in content.splitlines():
         stripped = line.strip()
         if stripped.startswith("@import") and "url(" in stripped:
             import_path = stripped.split("url(", 1)[1].split(")", 1)[0].strip("\"'")
             import_path = import_path.lstrip("./").replace("/", os.sep)
+            if base_dir:
+                import_path = os.path.join(base_dir, import_path)
             expanded.append(read_asset(import_path))
         else:
             expanded.append(line)
@@ -82,29 +85,29 @@ def build_editor_html(dialog, config, data_json, focus_node_id):
     addon_dir = os.path.dirname(os.path.dirname(__file__))
 
     jsmind_js = read_assets([
-        "jsmind.core.js",
-        "jsmind.model.js",
-        "jsmind.format.js",
-        "jsmind.util.js",
-        "jsmind.data-provider.js",
-        "jsmind.layout-provider.js",
-        "jsmind.view-provider.js",
-        "jsmind.shortcut-plugin.js",
-        "jsmind.js",
+        "vendor/jsmind/jsmind.core.js",
+        "vendor/jsmind/jsmind.model.js",
+        "vendor/jsmind/jsmind.format.js",
+        "vendor/jsmind/jsmind.util.js",
+        "vendor/jsmind/jsmind.data-provider.js",
+        "vendor/jsmind/jsmind.layout-provider.js",
+        "vendor/jsmind/jsmind.view-provider.js",
+        "vendor/jsmind/jsmind.shortcut-plugin.js",
+        "vendor/jsmind/jsmind.js",
     ])
     jsmind_draggable = read_assets([
-        "jsmind.draggable.options.js",
-        "jsmind.draggable.canvas.js",
-        "jsmind.draggable.highlight.js",
-        "jsmind.draggable.shadow.js",
-        "jsmind.draggable.timer.js",
-        "jsmind.draggable.lookup.js",
-        "jsmind.draggable.autoscroll.js",
-        "jsmind.draggable.move.js",
-        "jsmind.draggable.events.js",
-        "jsmind.draggable.core.js",
+        "vendor/jsmind/jsmind.draggable.options.js",
+        "vendor/jsmind/jsmind.draggable.canvas.js",
+        "vendor/jsmind/jsmind.draggable.highlight.js",
+        "vendor/jsmind/jsmind.draggable.shadow.js",
+        "vendor/jsmind/jsmind.draggable.timer.js",
+        "vendor/jsmind/jsmind.draggable.lookup.js",
+        "vendor/jsmind/jsmind.draggable.autoscroll.js",
+        "vendor/jsmind/jsmind.draggable.move.js",
+        "vendor/jsmind/jsmind.draggable.events.js",
+        "vendor/jsmind/jsmind.draggable.core.js",
     ])
-    jsmind_css = read_css_entry("jsmind.css")
+    jsmind_css = read_css_entry("vendor/jsmind/jsmind.css")
     style_css = read_css_entry("style.css")
     main_js = read_assets([
         "main/state.js",

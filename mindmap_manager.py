@@ -8,7 +8,6 @@ import uuid
 
 from .manager.note_utils import (
     FIELD_TITLE,
-    FIELD_DATA,
     FIELD_ALLOW_NEW_CARDS,
     ALLOW_NEW_CARDS_ENABLED,
     ALLOW_NEW_CARDS_DISABLED,

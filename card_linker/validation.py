@@ -5,6 +5,11 @@ from aqt import mw
 from .constants import MINDMAP_LINK_DIV_RE
 from .utils import parse_mindmap_link
 
+try:
+    from ..mindmap_editor.tree_utils import traverse_nodes
+except ImportError:
+    from mindmap_editor.tree_utils import traverse_nodes
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,13 +38,10 @@ def validate_and_cleanup_mindmap(mindmap_note):
         # Collect all noteIds in one pass
         note_ids = []
         def collect(node):
-            if isinstance(node, dict):
-                nid = node.get('noteId')
-                if nid is not None:
-                    note_ids.append(nid)
-                for child in node.get('children', []):
-                    collect(child)
-        collect(root)
+            nid = node.get('noteId')
+            if nid is not None:
+                note_ids.append(nid)
+        traverse_nodes(root, collect)
 
         # Batch check existence with a single SQL query
         existing_ids = set()
@@ -54,16 +56,13 @@ def validate_and_cleanup_mindmap(mindmap_note):
         removed_count = 0
         def cleanup(node):
             nonlocal modified, removed_count
-            if isinstance(node, dict):
-                nid = node.get('noteId')
-                if nid is not None and nid not in existing_ids:
-                    logger.info("Card %s no longer exists, removing noteId from node %s", nid, node.get('id'))
-                    del node['noteId']
-                    modified = True
-                    removed_count += 1
-                for child in node.get('children', []):
-                    cleanup(child)
-        cleanup(root)
+            nid = node.get('noteId')
+            if nid is not None and nid not in existing_ids:
+                logger.info("Card %s no longer exists, removing noteId from node %s", nid, node.get('id'))
+                del node['noteId']
+                modified = True
+                removed_count += 1
+        traverse_nodes(root, cleanup)
 
         if modified:
             mindmap_note['Data'] = json.dumps(data)

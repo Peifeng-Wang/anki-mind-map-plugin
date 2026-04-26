@@ -2,6 +2,11 @@ import logging
 
 from .constants import BR_RE, HTML_TAG_RE, MINDMAP_LINK_RE
 
+try:
+    from ..mindmap_editor.tree_utils import find_node, traverse_nodes
+except ImportError:
+    from mindmap_editor.tree_utils import find_node, traverse_nodes
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,27 +22,19 @@ def extract_first_line(html_text):
 def build_node_index(root):
     """Build a flat dict mapping node_id -> node for O(1) lookups."""
     index = {}
-    def _build(node):
-        if isinstance(node, dict):
-            node_id = node.get('id')
-            if node_id is not None:
-                index[node_id] = node
-            for child in node.get('children', []):
-                _build(child)
-    _build(root)
+
+    def _add(node):
+        node_id = node.get('id')
+        if node_id is not None:
+            index[node_id] = node
+
+    traverse_nodes(root, _add)
     return index
 
 
 def find_node_by_id(root, node_id):
     """Recursively find a node by ID in a mind map tree."""
-    if isinstance(root, dict):
-        if root.get('id') == node_id:
-            return root
-        for child in root.get('children', []):
-            found = find_node_by_id(child, node_id)
-            if found:
-                return found
-    return None
+    return find_node(root, node_id)
 
 
 def parse_mindmap_link(field_content):

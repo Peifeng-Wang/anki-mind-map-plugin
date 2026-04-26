@@ -61,3 +61,38 @@ def collect_node_info(root):
 
     traverse_nodes(root, callback)
     return existing_node_ids, nodes_with_note_ids
+
+
+def remove_nodes_by_ids(root, node_ids, on_delete=None):
+    """Iteratively rebuild children lists, removing nodes whose id is in node_ids.
+
+    Returns the number of nodes deleted. Optional on_delete(child) is called
+    for each removed node.
+    """
+    if not isinstance(root, dict) or not node_ids:
+        return 0
+
+    deleted_count = 0
+    stack = [(root, False)]
+    while stack:
+        node, visited = stack.pop()
+        if not isinstance(node, dict):
+            continue
+        if not visited:
+            stack.append((node, True))
+            for child in node.get('children', []):
+                stack.append((child, False))
+        else:
+            children = node.get('children', [])
+            if children:
+                new_children = []
+                for child in children:
+                    if isinstance(child, dict) and child.get('id') in node_ids:
+                        deleted_count += 1
+                        if on_delete is not None:
+                            on_delete(child)
+                    else:
+                        new_children.append(child)
+                if len(new_children) != len(children):
+                    node['children'] = new_children
+    return deleted_count
