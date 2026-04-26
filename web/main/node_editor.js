@@ -55,32 +55,15 @@ function enterEditMode(node) {
     var textarea = document.createElement('textarea');
     textarea.id = 'input-box';
     textarea.value = plainText;
+    textarea.className = 'mm-node-input';
 
     // Get computed styles from node
     var computedStyle = window.getComputedStyle(nodeElement);
 
-    // Apply styles to textarea
-    textarea.style.cssText = `
-        box-sizing: border-box;
-        margin: 0;
-        padding: 8px;
-        border: 2px solid #4A90E2;
-        border-radius: 4px;
-        outline: none;
-        background: #fff;
-        font-family: ${computedStyle.fontFamily};
-        font-size: ${computedStyle.fontSize};
-        font-weight: ${computedStyle.fontWeight};
-        color: #000;
-        line-height: 1.5;
-        resize: none;
-        overflow: hidden;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        min-width: 120px;
-        min-height: 30px;
-        max-width: 500px;
-    `;
+    // Apply dynamic font styles; the rest lives in CSS.
+    textarea.style.fontFamily = computedStyle.fontFamily;
+    textarea.style.fontSize = computedStyle.fontSize;
+    textarea.style.fontWeight = computedStyle.fontWeight;
 
     // Add textarea to node
     nodeElement.appendChild(textarea);
@@ -215,9 +198,7 @@ function enterEditMode(node) {
     }, true);
 
     textarea.addEventListener('contextmenu', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
+        swallowEvent(e);
         showEditFormattingContextMenu(e.clientX, e.clientY, textarea, function () {
             setTimeout(autoResize, 0);
         });

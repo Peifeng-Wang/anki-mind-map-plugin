@@ -102,36 +102,17 @@ function showEditFormattingContextMenu(x, y, textarea, onResize) {
 
     var menu = document.createElement('div');
     menu.id = 'custom-context-menu';
-    menu.style.cssText = `
-        position: fixed;
-        left: ${x}px;
-        top: ${y}px;
-        background: white;
-        border: 1px solid #ccc;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-        z-index: 10000;
-        padding: 5px 0;
-        border-radius: 4px;
-        min-width: 160px;
-    `;
+    menu.className = 'mm-context-menu';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
 
     function createMenuItem(text, onClick) {
         var item = document.createElement('div');
         item.innerText = text;
-        item.style.cssText = `
-            padding: 8px 15px;
-            cursor: pointer;
-            font-family: sans-serif;
-            font-size: 14px;
-            color: #333;
-        `;
-        item.onmouseover = function () { this.style.background = '#f0f0f0'; };
-        item.onmouseout = function () { this.style.background = 'white'; };
+        item.className = 'mm-context-menu-item';
         // Keep focus in the textarea while interacting with the menu.
         item.addEventListener('mousedown', function (ev) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            ev.stopImmediatePropagation();
+            swallowEvent(ev);
         }, true);
         item.onclick = function () {
             onClick();

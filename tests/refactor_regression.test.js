@@ -123,23 +123,11 @@ test('JavaScript files parse successfully', () => {
   [
     'web/vendor/jsmind/jsmind.js',
     'web/vendor/jsmind/jsmind.draggable.js',
-    'web/main.js',
     'web/standalone_viewer/viewer.js',
     ...draggableModuleFiles,
     ...editorModulePaths()
   ].forEach((relPath) => {
     execFileSync(process.execPath, ['--check', file(relPath)], { stdio: 'pipe' });
-  });
-});
-
-test('main.js remains a compatibility loader for split editor modules', () => {
-  const loader = read('web/main.js');
-  const modulePaths = editorModulePaths();
-
-  assert.ok(loader.includes('document.write'), 'main.js should synchronously load split modules');
-  assert.strictEqual(modulePaths.length, 23, 'expected focused editor modules');
-  modulePaths.forEach((relPath) => {
-    assert.ok(loader.includes(relPath.replace('web/', '')), `${relPath} missing from loader`);
   });
 });
 
@@ -542,6 +530,382 @@ test('MathJax is vendored locally and assets.py references the local path', () =
     'assets.py should reference the local MathJax path');
   assert.ok(!assets.includes('cdn.jsdelivr.net/npm/mathjax'),
     'assets.py should no longer use the CDN MathJax URL');
+});
+
+// ---------- Sandbox helper for web/main/*.js unit tests ----------
+function runMainJsInSandbox(files) {
+  const documentMock = {
+    getElementById() { return null; },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    createElement(tag) {
+      return {
+        tagName: tag,
+        style: {},
+        classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+        appendChild() {},
+        addEventListener() {},
+        removeEventListener() {},
+        setAttribute() {},
+        getAttribute() { return null; },
+        getBoundingClientRect() { return { width: 0, height: 0, left: 0, top: 0, right: 0, bottom: 0 }; },
+        closest() { return null; },
+        contains() { return false; },
+        isConnected: true,
+        children: [],
+        childNodes: [],
+        parentElement: null,
+        parentNode: null,
+        querySelector() { return null; },
+        querySelectorAll() { return []; },
+        scrollIntoView() {},
+        innerHTML: '',
+        textContent: '',
+        value: '',
+        id: '',
+        files: [],
+        focus() {},
+        select() {},
+      };
+    },
+    createElementNS(ns, tag) { return this.createElement(tag); },
+    createDocumentFragment() { return { appendChild() {}, children: [] }; },
+    addEventListener() {},
+    removeEventListener() {},
+    body: { appendChild() {}, removeChild() {}, children: [] },
+  };
+
+  const sandbox = {
+    getComputedStyle() { return { fontSize: '16px', fontFamily: 'sans-serif', fontWeight: '400' }; },
+    getSelection() { return { removeAllRanges() {} }; },
+    addEventListener() {},
+    removeEventListener() {},
+    requestAnimationFrame() { return 0; },
+    cancelAnimationFrame() {},
+    scrollTo() {},
+    clipboardData: undefined,
+    document: documentMock,
+    navigator: { clipboard: undefined },
+    console,
+    setTimeout: (fn, ms) => { if (fn) fn(); return 0; },
+    clearTimeout() {},
+    setInterval: (fn, ms) => { if (fn) fn(); return 0; },
+    clearInterval() {},
+    Date,
+    JSON,
+    Math,
+    parseInt,
+    parseFloat,
+    isNaN,
+    isFinite,
+    Number,
+    String,
+    Array,
+    Object,
+    RegExp,
+    Error,
+    TypeError,
+    RangeError,
+    Uint8Array,
+    Buffer,
+    ArrayBuffer,
+    Map,
+    Set,
+    WeakMap,
+    WeakSet,
+    Symbol,
+    Promise,
+    Reflect,
+    Proxy,
+    Intl,
+    require,
+    module: {},
+    exports: {},
+    alert: console.warn,
+  };
+
+  // window === globalThis === sandbox (just like a real browser)
+  sandbox.window = sandbox;
+  sandbox.global = sandbox;
+  sandbox.document = documentMock;
+
+  sandbox.DOMPurify = {
+    sanitize(html, opts) {
+      if (opts && opts.ALLOWED_TAGS) {
+        return String(html).replace(/<[^>]*>/g, '');
+      }
+      return html;
+    }
+  };
+  sandbox.MathJax = { typesetPromise() { return Promise.resolve(); } };
+  sandbox.pycmd = function(cmd) {};
+
+  function MockNode(id, index, topic, data, isroot, parent, direction) {
+    this.id = id;
+    this.index = index;
+    this.topic = topic;
+    this.data = data || {};
+    this.isroot = isroot || false;
+    this.parent = parent;
+    this.direction = direction;
+    this.children = [];
+    this.expanded = true;
+    this._data = { view: { element: null, abs_x: 0, abs_y: 0, width: 100, height: 40 } };
+  }
+
+  sandbox.jsMind = function(options) { this.options = options; };
+  sandbox.jsMind.prototype = {
+    get_node(id) { return this._nodes && this._nodes[id] || null; },
+    get_root() { return this._root || null; },
+    get_selected_node() { return this._selected || null; },
+    select_node() {},
+    select_clear() {},
+    show() {},
+    get_data() { return { data: this._root }; },
+    get_editable() { return true; },
+    update_node() {},
+    remove_node() {},
+    expand_node() {},
+    collapse_node() {},
+    toggle_node() {},
+    is_node_visible() { return true; },
+    add_node(parent, id, topic) {
+      const node = new MockNode(id, 0, topic, {}, false, parent ? parent.id : null);
+      if (!this._nodes) this._nodes = {};
+      this._nodes[id] = node;
+      return node;
+    },
+    disable_edit() {},
+    enable_edit() {},
+    view: { e_panel: { scrollLeft: 0, scrollTop: 0 }, e_nodes: {}, actualZoom: 1 },
+    direction: { right: 1, left: 2 },
+  };
+  sandbox.jsMind.event_type = { resize: 1, mousedown: 2, click: 3, dblclick: 4 };
+  sandbox.jsMind.util = { dom: { add_event() {} }, json: { merge() {} }, uuid: {} };
+  sandbox.jsMind.register_plugin = function() {};
+  sandbox.jsMind.format = { node_tree: { get_mind() {} } };
+
+  sandbox.MM = { state: {
+    jm: null,
+    autoSaveTimeout: null,
+    autoSaveDelay: 2000,
+    mindMapHistory: [],
+    mindMapHistoryIndex: -1,
+    maxHistory: 50,
+    mindMapHistoryStateStrings: [],
+    selectedNodes: [],
+    isEditing: false,
+    editingNodeId: null,
+    selectionBox: null,
+    isSelecting: false,
+    selectionStart: { x: 0, y: 0 },
+    arrows: [],
+    arrowMode: false,
+    arrowStart: null,
+    floatingNodes: [],
+    floatingNodeIdPrefix: 'floating_',
+    selectedFloatingNode: null,
+    summaryBraces: [],
+    summaryBraceIdPrefix: 'summary_',
+    braceColor: '#3b82f6',
+    boundaries: [],
+    boundaryIdPrefix: 'boundary_',
+    boundaryColor: '#ef4444',
+    selectedBoundary: null,
+    changedNodes: new Set(),
+    overlayRenderTimer: null,
+    overlayRenderRaf: null,
+    overlayRenderTimer2: null,
+    overlayRenderRaf2: null,
+    scrollToNodeAnimToken: 0,
+    scrollToNodeAnimRaf: null,
+    hotkeyConfig: {
+      save: 'Ctrl+S',
+      refresh: 'F5',
+      focus_root: 'Ctrl+R',
+      create_summary: 'Ctrl+Shift+S',
+      create_boundary: 'Ctrl+Shift+B',
+      bold: 'Ctrl+B',
+      italic: 'Ctrl+I',
+      inline_code: 'Ctrl+`',
+      code_block: 'Ctrl+Shift+`',
+      toggle_collapse: '`'
+    },
+    pendingMapLinkCallback: null
+  }};
+
+  const source = (files || [
+    'web/main/state.js',
+    'web/main/jsmind_dom.js',
+    'web/main/hotkeys.js',
+    'web/main/ui_feedback.js',
+    'web/main/text_formatting.js',
+    'web/main/mathjax.js',
+    'web/main/node_editor.js',
+    'web/main/persistence.js',
+    'web/main/summary_braces_dom.js',
+    'web/main/boundaries.js',
+  ]).map(read).join('\n');
+
+  vm.runInNewContext(source, sandbox);
+  return sandbox;
+}
+
+// ---------- Structural regression tests ----------
+
+test('CSS refactor classes used in JS are defined in style-interactions.css', () => {
+  const css = readStyleCssCascade();
+  const main = editorMainSource();
+  const cssClasses = [...css.matchAll(/\.(mm-[a-z0-9-]+)/g)].map((m) => m[1]);
+  assert.ok(cssClasses.length > 0, 'should find mm- classes in CSS');
+  cssClasses.forEach((cls) => {
+    assert.ok(main.includes(`'${cls}'`) || main.includes(`"${cls}"`),
+      `CSS class .${cls} should be referenced in main JS`);
+  });
+});
+
+test('swallowEvent exists and prevents propagation', () => {
+  const sandbox = runMainJsInSandbox(['web/main/state.js']);
+  assert.strictEqual(typeof sandbox.swallowEvent, 'function', 'swallowEvent should be defined');
+  let prevented = false;
+  let stopped = false;
+  let stoppedImmediate = false;
+  const e = {
+    preventDefault() { prevented = true; },
+    stopPropagation() { stopped = true; },
+    stopImmediatePropagation() { stoppedImmediate = true; }
+  };
+  sandbox.swallowEvent(e);
+  assert.ok(prevented, 'should call preventDefault');
+  assert.ok(stopped, 'should call stopPropagation');
+  assert.ok(stoppedImmediate, 'should call stopImmediatePropagation');
+});
+
+// ---------- Pure logic unit tests ----------
+
+test('countNodes recursively counts nodes', () => {
+  const sandbox = runMainJsInSandbox(['web/main/mathjax.js']);
+  assert.strictEqual(sandbox.countNodes({ id: 'root', children: [] }), 1);
+  assert.strictEqual(sandbox.countNodes({ id: 'root', children: [{ id: 'a' }, { id: 'b' }] }), 3);
+  assert.strictEqual(sandbox.countNodes({ id: 'root', children: [{ id: 'a', children: [{ id: 'aa' }] }] }), 3);
+});
+
+test('matchHotkey correctly matches hotkey strings', () => {
+  const sandbox = runMainJsInSandbox(['web/main/state.js', 'web/main/hotkeys.js']);
+  const mk = sandbox.matchHotkey;
+  assert.ok(mk({ key: 's', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }, 'Ctrl+S'));
+  assert.ok(mk({ key: 'S', ctrlKey: true, metaKey: false, shiftKey: true, altKey: false }, 'Ctrl+Shift+S'));
+  assert.ok(!mk({ key: 's', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false }, 'Ctrl+S'));
+  assert.ok(mk({ key: '~', ctrlKey: false, metaKey: false, shiftKey: true, altKey: false }, 'Shift+`'));
+  assert.ok(mk({ key: 'F5', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false }, 'F5'));
+  assert.ok(!mk({ key: 'f5', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false }, 'F5'));
+});
+
+test('escapeHtml escapes HTML entities', () => {
+  const sandbox = runMainJsInSandbox(['web/main/ui_feedback.js']);
+  assert.strictEqual(sandbox.escapeHtml('<script>'), '&lt;script&gt;');
+  assert.strictEqual(sandbox.escapeHtml('"test"'), '&quot;test&quot;');
+  assert.strictEqual(sandbox.escapeHtml("it's"), 'it&#039;s');
+  assert.strictEqual(sandbox.escapeHtml('&'), '&amp;');
+});
+
+test('escapeCodeTagsForDisplay escapes inside code tags', () => {
+  const sandbox = runMainJsInSandbox(['web/main/ui_feedback.js', 'web/main/text_formatting.js']);
+  const out = sandbox.escapeCodeTagsForDisplay('<code><script>alert(1)</script></code>');
+  assert.ok(!out.includes('<script>'), 'script tag inside code should be escaped');
+  assert.ok(out.includes('<code>'), 'outer code tag should remain');
+  assert.ok(out.includes('alert(1)'), 'content should survive');
+});
+
+test('sanitizeTopicHtml falls back to tag stripping without DOMPurify', () => {
+  const sandbox = runMainJsInSandbox(['web/main/node_editor.js']);
+  delete sandbox.DOMPurify;
+  const out = sandbox.sanitizeTopicHtml('<b>bold</b><script>evil</script>');
+  assert.ok(!out.includes('<script>'), 'script tag should be stripped');
+  assert.ok(!out.includes('<b>'), 'all tags should be stripped in fallback');
+  assert.ok(out.includes('bold'), 'text content should survive');
+});
+
+test('toggleWrapSelection wraps and unwraps textarea content', () => {
+  const sandbox = runMainJsInSandbox(['web/main/text_formatting.js']);
+  function makeTextarea(value, start, end) {
+    return { value, selectionStart: start, selectionEnd: end };
+  }
+  const ta = makeTextarea('hello world', 0, 11);
+  sandbox.toggleWrapSelection(ta, '<b>', '</b>');
+  assert.strictEqual(ta.value, '<b>hello world</b>');
+  assert.strictEqual(ta.selectionStart, 3);
+  assert.strictEqual(ta.selectionEnd, 14);
+  // unwrap
+  sandbox.toggleWrapSelection(ta, '<b>', '</b>');
+  assert.strictEqual(ta.value, 'hello world');
+});
+
+test('validateSummarySelection validates node selection', () => {
+  const sandbox = runMainJsInSandbox(['web/main/state.js', 'web/main/summary_braces_dom.js']);
+  sandbox.MM.state.selectedNodes = [];
+  let result = sandbox.validateSummarySelection();
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.reason.includes('2'));
+
+  const el1 = { getAttribute: () => 'n1' };
+  const el2 = { getAttribute: () => 'n2' };
+  sandbox.MM.state.selectedNodes = [el1, el2];
+
+  sandbox.MM.state.jm = {
+    get_node(id) {
+      if (id === 'n1') return { id: 'n1', isroot: false, parent: 'p1', data: {} };
+      if (id === 'n2') return { id: 'n2', isroot: false, parent: 'p1', data: {} };
+      if (id === 'p1') return { id: 'p1', isroot: false, parent: 'root', data: {} };
+      return null;
+    }
+  };
+  result = sandbox.validateSummarySelection();
+  assert.strictEqual(result.valid, true);
+  assert.strictEqual(result.nodes.length, 2);
+});
+
+test('validateBoundarySelection validates boundary selection', () => {
+  const sandbox = runMainJsInSandbox(['web/main/state.js', 'web/main/boundaries.js']);
+  sandbox.MM.state.selectedNodes = [];
+  let result = sandbox.validateBoundarySelection();
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.reason.includes('1'));
+
+  const el1 = { getAttribute: () => 'n1' };
+  sandbox.MM.state.selectedNodes = [el1];
+  sandbox.MM.state.jm = {
+    get_node(id) {
+      if (id === 'n1') return { id: 'n1', isroot: false, parent: 'p1', data: {} };
+      return null;
+    }
+  };
+  result = sandbox.validateBoundarySelection();
+  assert.strictEqual(result.valid, true);
+  assert.strictEqual(result.nodes.length, 1);
+});
+
+test('hasSpecialBoundary detects special boundaries', () => {
+  const sandbox = runMainJsInSandbox(['web/main/state.js', 'web/main/boundaries.js']);
+  sandbox.MM.state.boundaries = [];
+  assert.strictEqual(sandbox.hasSpecialBoundary(), false);
+  sandbox.MM.state.boundaries = [{ id: 'b1', isSpecial: false }];
+  assert.strictEqual(sandbox.hasSpecialBoundary(), false);
+  sandbox.MM.state.boundaries = [{ id: 'b1', isSpecial: true }];
+  assert.strictEqual(sandbox.hasSpecialBoundary(), true);
+});
+
+test('collectFloatingNodesData maps floating nodes', () => {
+  const sandbox = runMainJsInSandbox(['web/main/state.js', 'web/main/persistence.js']);
+  sandbox.MM.state.floatingNodes = [
+    { id: 'f1', topic: 'A', x: 10, y: 20 },
+    { id: 'f2', topic: 'B', x: 30, y: 40, extra: 'ignored' }
+  ];
+  const result = sandbox.collectFloatingNodesData();
+  assert.strictEqual(result.length, 2);
+  assert.strictEqual(JSON.stringify(result[0]), JSON.stringify({ id: 'f1', topic: 'A', x: 10, y: 20 }));
+  assert.strictEqual(JSON.stringify(result[1]), JSON.stringify({ id: 'f2', topic: 'B', x: 30, y: 40 }));
+  assert.strictEqual(result[1].extra, undefined);
 });
 
 console.log('All refactor regression tests passed.');

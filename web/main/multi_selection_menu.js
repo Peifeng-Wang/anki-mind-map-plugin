@@ -9,15 +9,15 @@ function showMultiSelectionContextMenu(x, y) {
 
     var menu = document.createElement('div');
     menu.id = 'custom-context-menu';
-    menu.style.cssText = 'position:fixed; left:' + x + 'px; top:' + y + 'px; background:white; border:1px solid #ccc; box-shadow:2px 2px 5px rgba(0,0,0,0.2); z-index:10000; padding:5px 0; border-radius:4px; min-width:180px;';
+    menu.className = 'mm-context-menu';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
 
     function createMenuItem(text, onClick, disabled) {
         var item = document.createElement('div');
         item.innerText = text;
-        item.style.cssText = 'padding:8px 15px; cursor:' + (disabled ? 'default' : 'pointer') + '; font-family:sans-serif; font-size:14px; color:' + (disabled ? '#999' : '#333') + ';';
+        item.className = 'mm-context-menu-item' + (disabled ? ' disabled' : '');
         if (!disabled) {
-            item.onmouseover = function () { this.style.background = '#f0f0f0'; };
-            item.onmouseout = function () { this.style.background = 'white'; };
             item.onclick = function () {
                 onClick();
                 menu.remove();
@@ -38,7 +38,7 @@ function showMultiSelectionContextMenu(x, y) {
 
     // Separator
     var sep = document.createElement('div');
-    sep.style.cssText = 'height:1px; background:#eee; margin:4px 0;';
+    sep.className = 'mm-context-menu-sep';
     menu.appendChild(sep);
 
     // Boundary option
@@ -53,7 +53,7 @@ function showMultiSelectionContextMenu(x, y) {
 
     // Separator
     var sep2 = document.createElement('div');
-    sep2.style.cssText = 'height:1px; background:#eee; margin:4px 0;';
+    sep2.className = 'mm-context-menu-sep';
     menu.appendChild(sep2);
 
     menu.appendChild(createMenuItem('Clear Selection', function () {

@@ -75,18 +75,9 @@ function showNodeContextMenu(x, y, nodeInfo) {
 
     var menu = document.createElement('div');
     menu.id = 'custom-context-menu';
-    menu.style.cssText = `
-        position: fixed;
-        left: ${x}px;
-        top: ${y}px;
-        background: white;
-        border: 1px solid #ccc;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-        z-index: 10000;
-        padding: 5px 0;
-        border-radius: 4px;
-        min-width: 180px;
-    `;
+    menu.className = 'mm-context-menu';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
 
     var hasItems = false;
 
@@ -94,15 +85,7 @@ function showNodeContextMenu(x, y, nodeInfo) {
     function createMenuItem(text, onClick) {
         var item = document.createElement('div');
         item.innerText = text;
-        item.style.cssText = `
-            padding: 8px 15px;
-            cursor: pointer;
-            font-family: sans-serif;
-            font-size: 14px;
-            color: #333;
-        `;
-        item.onmouseover = function () { this.style.background = '#f0f0f0'; };
-        item.onmouseout = function () { this.style.background = 'white'; };
+        item.className = 'mm-context-menu-item';
         item.onclick = function () {
             onClick();
             menu.remove();
@@ -134,19 +117,14 @@ function showNodeContextMenu(x, y, nodeInfo) {
         // Add separator if there are other items
         if (hasItems) {
             var sep = document.createElement('div');
-            sep.style.cssText = 'height: 1px; background: #eee; margin: 4px 0;';
+            sep.className = 'mm-context-menu-sep';
             menu.appendChild(sep);
         }
 
         // Add header for linked maps
         var header = document.createElement('div');
         header.innerText = "Jump to Linked Maps:";
-        header.style.cssText = `
-            padding: 4px 15px;
-            font-family: sans-serif;
-            font-size: 12px;
-            color: #888;
-        `;
+        header.className = 'mm-context-menu-header';
         menu.appendChild(header);
 
         nodeInfo.linkedMaps.forEach(function (link) {
@@ -166,7 +144,7 @@ function showNodeContextMenu(x, y, nodeInfo) {
         // Add separator if there are other items
         if (hasItems) {
             var sep = document.createElement('div');
-            sep.style.cssText = 'height: 1px; background: #eee; margin: 4px 0;';
+            sep.className = 'mm-context-menu-sep';
             menu.appendChild(sep);
         }
 
@@ -210,57 +188,23 @@ function showMapSelectionDialog(mapsList) {
 
     var overlay = document.createElement('div');
     overlay.id = 'map-select-dialog';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        z-index: 10001;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    `;
+    overlay.className = 'mm-dialog-overlay';
 
     var dialog = document.createElement('div');
-    dialog.style.cssText = `
-        background: white;
-        border-radius: 8px;
-        padding: 20px;
-        min-width: 300px;
-        max-width: 400px;
-        max-height: 80vh;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    `;
+    dialog.className = 'mm-dialog-box';
 
     var title = document.createElement('h3');
     title.innerText = "Link to Mind Map";
-    title.style.cssText = `
-        margin: 0 0 10px 0;
-        font-family: sans-serif;
-        font-size: 16px;
-        color: #333;
-    `;
+    title.className = 'mm-dialog-title';
     dialog.appendChild(title);
 
     var hint = document.createElement('div');
     hint.innerText = "✓ = Linked (click to unlink)";
-    hint.style.cssText = `
-        margin-bottom: 10px;
-        font-family: sans-serif;
-        font-size: 12px;
-        color: #666;
-    `;
+    hint.className = 'mm-dialog-hint';
     dialog.appendChild(hint);
 
     var list = document.createElement('div');
-    list.style.cssText = `
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid #eee;
-        border-radius: 4px;
-    `;
+    list.className = 'mm-dialog-list';
 
     mapsList.forEach(function (map) {
         var item = document.createElement('div');
@@ -270,16 +214,10 @@ function showMapSelectionDialog(mapsList) {
         var bgColor = map.isLinked ? '#e8f5e9' : 'white';
         var hoverColor = map.isLinked ? '#c8e6c9' : '#e3f2fd';
 
-        item.style.cssText = `
-            padding: 12px 15px;
-            cursor: pointer;
-            font-family: sans-serif;
-            font-size: 14px;
-            color: ${map.isLinked ? '#2e7d32' : '#333'};
-            border-bottom: 1px solid #f0f0f0;
-            background: ${bgColor};
-            font-weight: ${map.isLinked ? 'bold' : 'normal'};
-        `;
+        item.className = 'mm-dialog-list-item';
+        item.style.color = map.isLinked ? '#2e7d32' : '#333';
+        item.style.background = bgColor;
+        item.style.fontWeight = map.isLinked ? 'bold' : 'normal';
         item.onmouseover = function () { this.style.background = hoverColor; };
         item.onmouseout = function () { this.style.background = bgColor; };
         item.onclick = function () {
@@ -303,15 +241,7 @@ function showMapSelectionDialog(mapsList) {
 
     var cancelBtn = document.createElement('button');
     cancelBtn.innerText = "Cancel";
-    cancelBtn.style.cssText = `
-        margin-top: 15px;
-        padding: 8px 20px;
-        background: #f5f5f5;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-    `;
+    cancelBtn.className = 'mm-dialog-cancel';
     cancelBtn.onclick = function () { overlay.remove(); };
     dialog.appendChild(cancelBtn);
 

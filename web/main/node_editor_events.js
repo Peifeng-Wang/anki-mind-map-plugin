@@ -257,9 +257,7 @@ document.addEventListener('mousedown', function (e) {
 
         // Click outside node - exit edit mode
         console.log('Click outside node - exiting edit mode');
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
+        swallowEvent(e);
         exitEditMode();
         return;
     }
@@ -281,9 +279,7 @@ document.addEventListener('click', function (e) {
 
             // Only allow clicks inside the node element
             if (!nodeElement || !nodeElement.contains(e.target)) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                swallowEvent(e);
                 return;
             }
         }
@@ -316,9 +312,7 @@ document.addEventListener('contextmenu', function (e) {
     var textarea = document.getElementById('input-box');
     if (!textarea) return;
 
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
+    swallowEvent(e);
     showEditFormattingContextMenu(e.clientX, e.clientY, textarea, function () {
         // Auto-resize is defined inside enterEditMode; trigger input to recalc size.
         textarea.dispatchEvent(new Event('input'));

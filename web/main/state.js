@@ -1,5 +1,11 @@
 window.MM = window.MM || {};
 
+function swallowEvent(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+}
+
 MM.state = {
     jm: null,
     autoSaveTimeout: null,

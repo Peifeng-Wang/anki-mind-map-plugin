@@ -164,7 +164,7 @@ function enterSummaryEditMode(element, braceData) {
 
     var input = document.createElement('textarea');
     input.value = currentText;
-    input.style.cssText = 'width:100%;height:100%;border:none;outline:none;background:transparent;font-family:inherit;font-size:inherit;text-align:center;resize:none;padding:0;margin:0;color:white;';
+    input.className = 'mm-summary-input';
 
     element.innerHTML = '';
     element.appendChild(input);
