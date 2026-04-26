@@ -1,5 +1,7 @@
 """Qt dialog construction and wiring for the backup tool."""
 
+import traceback
+
 from aqt.qt import QDialog, QHBoxLayout, QPushButton, QTextEdit, QVBoxLayout
 from aqt.utils import showInfo, tooltip
 
@@ -123,7 +125,6 @@ class MindMapBackupDialog(QDialog):
 
     def export_selected(self):
         """Export a specific mind map."""
-        import traceback
         try:
             from ..export_utils import export_mindmap_to_json
             from ..mindmap_manager import MindMapManager

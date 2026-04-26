@@ -257,7 +257,6 @@ class MindMapDialog(QDialog):
 
             # Parse to check root topic
             try:
-                import json
                 parsed_data = json.loads(data_str)
                 root_topic = parsed_data.get('data', {}).get('topic', 'N/A')
                 logger.debug(f"DEBUG: Root topic in fresh data: {root_topic}")

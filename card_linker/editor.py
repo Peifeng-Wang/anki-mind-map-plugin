@@ -1,3 +1,4 @@
+import json
 import logging
 
 from aqt import mw
@@ -30,7 +31,6 @@ def _extract_link_from_note(note):
 def _validate_mindmap_link(mindmap_id, node_id):
     """Return (mindmap_note, mindmap_title, node_exists) or raises on failure."""
     from .utils import find_node_by_id, get_root_node
-    import json
 
     mindmap_note = mw.col.get_note(mindmap_id)
     mindmap_title = mindmap_note['Title']

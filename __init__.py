@@ -1,3 +1,5 @@
+import json
+
 from aqt import mw, gui_hooks
 from aqt.qt import *
 from aqt.utils import tooltip
@@ -33,7 +35,6 @@ def _ensure_config_defaults() -> None:
     except Exception:
         # Fallback for older Anki builds.
         try:
-            import json
             from pathlib import Path
 
             defaults_path = Path(__file__).with_name("config.json")

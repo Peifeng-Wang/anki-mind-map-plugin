@@ -1,3 +1,4 @@
+import json
 import logging
 
 from aqt import mw
@@ -26,7 +27,6 @@ def remove_link_from_card(note, field_name):
 def validate_and_cleanup_mindmap(mindmap_note):
     """Validate and cleanup nodes in mindmap - remove noteId if card doesn't exist."""
     try:
-        import json
         from .utils import get_root_node
 
         data = json.loads(mindmap_note['Data'])
