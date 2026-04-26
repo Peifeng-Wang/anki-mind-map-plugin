@@ -129,8 +129,6 @@ def handle_create_map_link(dialog, params_json: str):
 
     except Exception as e:
         logger.exception("Error creating map link")
-        import traceback
-        traceback.print_exc()
         dialog.web.eval(f"if(typeof showToast === 'function') showToast({json.dumps(f'Error: {e}')});")
 
 
@@ -265,5 +263,3 @@ def handle_unlink_map(dialog, params_json: str):
 
     except Exception:
         logger.exception("Error unlinking map")
-        import traceback
-        traceback.print_exc()

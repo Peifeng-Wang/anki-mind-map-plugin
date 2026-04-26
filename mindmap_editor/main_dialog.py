@@ -29,10 +29,7 @@ class MindMapDialog(QDialog):
         mw.addonManager.writeConfig(__name__, config)
 
         # Validate and clean up orphaned links before opening
-        try:
-            from .. import card_linker
-        except ImportError:
-            import card_linker
+        from .. import card_linker
         card_linker.validate_and_cleanup_mindmap(self.note)
         from .cleanup import cleanup_orphaned_links
         cleanup_orphaned_links(self)
@@ -241,8 +238,6 @@ class MindMapDialog(QDialog):
 
         except Exception as e:
             logger.exception("Error saving")
-            import traceback
-            traceback.print_exc()
             self.web.eval(f"if(typeof showToast === 'function') showToast({json.dumps(f'Error: {e}')});")
 
     def _handle_refresh(self):
@@ -266,7 +261,7 @@ class MindMapDialog(QDialog):
                 parsed_data = json.loads(data_str)
                 root_topic = parsed_data.get('data', {}).get('topic', 'N/A')
                 logger.debug(f"DEBUG: Root topic in fresh data: {root_topic}")
-            except:
+            except Exception:
                 pass
 
             # Update self.note with latest data
@@ -278,8 +273,6 @@ class MindMapDialog(QDialog):
             logger.debug("DEBUG: Refresh command sent to JavaScript")
         except Exception as e:
             logger.exception("Error refreshing")
-            import traceback
-            traceback.print_exc()
 
     def _handle_get_editable_maps(self):
         from .maplinks import handle_get_editable_maps

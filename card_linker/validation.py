@@ -5,10 +5,7 @@ from aqt import mw
 from .constants import MINDMAP_LINK_DIV_RE
 from .utils import parse_mindmap_link
 
-try:
-    from ..mindmap_editor.tree_utils import traverse_nodes
-except ImportError:
-    from mindmap_editor.tree_utils import traverse_nodes
+from ..mindmap_editor.tree_utils import traverse_nodes
 
 logger = logging.getLogger(__name__)
 

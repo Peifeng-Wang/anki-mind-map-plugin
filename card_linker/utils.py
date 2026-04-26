@@ -2,10 +2,7 @@ import logging
 
 from .constants import BR_RE, HTML_TAG_RE, MINDMAP_LINK_RE
 
-try:
-    from ..mindmap_editor.tree_utils import find_node, traverse_nodes
-except ImportError:
-    from mindmap_editor.tree_utils import find_node, traverse_nodes
+from ..mindmap_editor.tree_utils import find_node, traverse_nodes
 
 logger = logging.getLogger(__name__)
 
