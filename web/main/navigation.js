@@ -11,17 +11,17 @@ function toggleArrowMode() {
 // Get all nodes at the same depth level and side, sorted by vertical position
 function getNodesAtDepth(depth, filterSide) {
     var allNodes = [];
+    var zoom = (MM.state.jm.view && MM.state.jm.view.actualZoom) || 1;
 
     function traverse(node, currentDepth) {
         if (currentDepth === depth) {
-            var elem = document.querySelector('jmnode[nodeid="' + node.id + '"]');
-            if (elem) {
-                var rect = elem.getBoundingClientRect();
+            var vd = node._data && node._data.view;
+            if (vd && vd.element) {
                 allNodes.push({
                     node: node,
-                    top: rect.top,
-                    centerY: rect.top + rect.height / 2,
-                    centerX: rect.left + rect.width / 2
+                    top: vd.abs_y * zoom,
+                    centerY: (vd.abs_y + vd.height / 2) * zoom,
+                    centerX: (vd.abs_x + vd.width / 2) * zoom
                 });
             }
         }
@@ -42,9 +42,9 @@ function getNodesAtDepth(depth, filterSide) {
 
     // Filter by side if specified
     if (filterSide !== null && filterSide !== undefined) {
-        var rootElem = document.querySelector('jmnode[nodeid="' + root.id + '"]');
-        if (rootElem) {
-            var rootCenterX = rootElem.getBoundingClientRect().left + rootElem.getBoundingClientRect().width / 2;
+        var rootVd = root._data && root._data.view;
+        if (rootVd) {
+            var rootCenterX = (rootVd.abs_x + rootVd.width / 2) * zoom;
             allNodes = allNodes.filter(function (item) {
                 if (filterSide === 'left') {
                     return item.centerX < rootCenterX;
@@ -80,13 +80,14 @@ function getNodeSide(node) {
     if (node.isroot) return 'center';
 
     var root = MM.state.jm.get_root();
-    var rootElem = document.querySelector('jmnode[nodeid="' + root.id + '"]');
-    var nodeElem = document.querySelector('jmnode[nodeid="' + node.id + '"]');
+    var rootVd = root._data && root._data.view;
+    var nodeVd = node._data && node._data.view;
 
-    if (!rootElem || !nodeElem) return null;
+    if (!rootVd || !nodeVd) return null;
 
-    var rootCenterX = rootElem.getBoundingClientRect().left + rootElem.getBoundingClientRect().width / 2;
-    var nodeCenterX = nodeElem.getBoundingClientRect().left + nodeElem.getBoundingClientRect().width / 2;
+    var zoom = (MM.state.jm.view && MM.state.jm.view.actualZoom) || 1;
+    var rootCenterX = (rootVd.abs_x + rootVd.width / 2) * zoom;
+    var nodeCenterX = (nodeVd.abs_x + nodeVd.width / 2) * zoom;
 
     return nodeCenterX < rootCenterX ? 'left' : 'right';
 }
@@ -95,11 +96,11 @@ function getNodeSide(node) {
 function getClosestChild(parentNode) {
     if (!parentNode.children || parentNode.children.length === 0) return null;
 
-    var parentElem = document.querySelector('jmnode[nodeid="' + parentNode.id + '"]');
-    if (!parentElem) return null;
+    var parentVd = parentNode._data && parentNode._data.view;
+    if (!parentVd) return null;
 
-    var parentRect = parentElem.getBoundingClientRect();
-    var parentCenterY = parentRect.top + parentRect.height / 2;
+    var zoom = (MM.state.jm.view && MM.state.jm.view.actualZoom) || 1;
+    var parentCenterY = (parentVd.abs_y + parentVd.height / 2) * zoom;
 
     var closest = null;
     var minDist = Infinity;
@@ -109,10 +110,9 @@ function getClosestChild(parentNode) {
         var childNode = MM.state.jm.get_node(childId);
         if (!childNode) continue;
 
-        var childElem = document.querySelector('jmnode[nodeid="' + childId + '"]');
-        if (childElem) {
-            var childRect = childElem.getBoundingClientRect();
-            var childCenterY = childRect.top + childRect.height / 2;
+        var childVd = childNode._data && childNode._data.view;
+        if (childVd && childNode._data.view.element) {
+            var childCenterY = (childVd.abs_y + childVd.height / 2) * zoom;
             var dist = Math.abs(childCenterY - parentCenterY);
 
             if (dist < minDist || (dist === minDist && closest === null)) {
@@ -273,21 +273,22 @@ function navigateLeft() {
     // If at root, go to left-side closest child
     if (selected.isroot) {
         if (selected.children && selected.children.length > 0) {
-            var rootElem = document.querySelector('jmnode[nodeid="' + selected.id + '"]');
-            if (!rootElem) return;
-            var rootRect = rootElem.getBoundingClientRect();
-            var rootCenterX = rootRect.left + rootRect.width / 2;
-            var rootCenterY = rootRect.top + rootRect.height / 2;
+            var rootVd = selected._data && selected._data.view;
+            if (!rootVd) return;
+            var zoom = (MM.state.jm.view && MM.state.jm.view.actualZoom) || 1;
+            var rootCenterX = (rootVd.abs_x + rootVd.width / 2) * zoom;
+            var rootCenterY = (rootVd.abs_y + rootVd.height / 2) * zoom;
 
             var leftChildren = [];
             for (var i = 0; i < selected.children.length; i++) {
                 var childId = (typeof selected.children[i] === 'string') ? selected.children[i] : selected.children[i].id;
-                var childElem = document.querySelector('jmnode[nodeid="' + childId + '"]');
-                if (childElem) {
-                    var childRect = childElem.getBoundingClientRect();
-                    var childCenterX = childRect.left + childRect.width / 2;
+                var childNode = MM.state.jm.get_node(childId);
+                if (!childNode) continue;
+                var childVd = childNode._data && childNode._data.view;
+                if (childVd && childNode._data.view.element) {
+                    var childCenterX = (childVd.abs_x + childVd.width / 2) * zoom;
                     if (childCenterX < rootCenterX) {
-                        var childCenterY = childRect.top + childRect.height / 2;
+                        var childCenterY = (childVd.abs_y + childVd.height / 2) * zoom;
                         var dist = Math.abs(childCenterY - rootCenterY);
                         leftChildren.push({ id: childId, dist: dist });
                     }
@@ -330,21 +331,22 @@ function navigateRight() {
     // If at root, go to right-side closest child
     if (selected.isroot) {
         if (selected.children && selected.children.length > 0) {
-            var rootElem = document.querySelector('jmnode[nodeid="' + selected.id + '"]');
-            if (!rootElem) return;
-            var rootRect = rootElem.getBoundingClientRect();
-            var rootCenterX = rootRect.left + rootRect.width / 2;
-            var rootCenterY = rootRect.top + rootRect.height / 2;
+            var rootVd = selected._data && selected._data.view;
+            if (!rootVd) return;
+            var zoom = (MM.state.jm.view && MM.state.jm.view.actualZoom) || 1;
+            var rootCenterX = (rootVd.abs_x + rootVd.width / 2) * zoom;
+            var rootCenterY = (rootVd.abs_y + rootVd.height / 2) * zoom;
 
             var rightChildren = [];
             for (var i = 0; i < selected.children.length; i++) {
                 var childId = (typeof selected.children[i] === 'string') ? selected.children[i] : selected.children[i].id;
-                var childElem = document.querySelector('jmnode[nodeid="' + childId + '"]');
-                if (childElem) {
-                    var childRect = childElem.getBoundingClientRect();
-                    var childCenterX = childRect.left + childRect.width / 2;
+                var childNode = MM.state.jm.get_node(childId);
+                if (!childNode) continue;
+                var childVd = childNode._data && childNode._data.view;
+                if (childVd && childNode._data.view.element) {
+                    var childCenterX = (childVd.abs_x + childVd.width / 2) * zoom;
                     if (childCenterX > rootCenterX) {
-                        var childCenterY = childRect.top + childRect.height / 2;
+                        var childCenterY = (childVd.abs_y + childVd.height / 2) * zoom;
                         var dist = Math.abs(childCenterY - rootCenterY);
                         rightChildren.push({ id: childId, dist: dist });
                     }
