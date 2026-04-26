@@ -1,6 +1,7 @@
 import logging
 
 from .note_utils import load_note_data, save_note_data
+from .transaction import collection_transaction
 
 logger = logging.getLogger(__name__)
 
@@ -12,28 +13,29 @@ def cleanup_linked_nodes_on_delete(mw, source_map_id):
         source_data = load_note_data(source_note)
         linked_maps = get_linked_maps(source_data)
 
-        for link in linked_maps:
-            target_map_id = link.get('targetMapId')
-            linked_node_id = link.get('linkedNodeId')
+        with collection_transaction(mw.col, "cleanup_linked_nodes"):
+            for link in linked_maps:
+                target_map_id = link.get('targetMapId')
+                linked_node_id = link.get('linkedNodeId')
 
-            if not target_map_id or not linked_node_id:
-                continue
+                if not target_map_id or not linked_node_id:
+                    continue
 
-            try:
-                target_note, target_data = load_target_map(mw, target_map_id)
-                remove_linked_node(target_data, linked_node_id)
+                try:
+                    target_note, target_data = load_target_map(mw, target_map_id)
+                    remove_linked_node(target_data, linked_node_id)
 
-                save_note_data(target_note, target_data)
-                mw.col.update_note(target_note)
+                    save_note_data(target_note, target_data)
+                    mw.col.update_note(target_note)
 
-                logger.info("Removed linked node %s from map %s", linked_node_id, target_map_id)
-                for editor in getattr(mw, 'mindmap_editors', []):
-                    if editor.note_id == target_map_id:
-                        editor._handle_refresh()
-                        break
+                    logger.info("Removed linked node %s from map %s", linked_node_id, target_map_id)
+                    for editor in getattr(mw, 'mindmap_editors', []):
+                        if editor.note_id == target_map_id:
+                            editor._handle_refresh()
+                            break
 
-            except Exception:
-                logger.exception("Error cleaning up linked node in map %s", target_map_id)
+                except Exception:
+                    logger.exception("Error cleaning up linked node in map %s", target_map_id)
 
     except Exception:
         logger.exception("Error during cleanup on delete")

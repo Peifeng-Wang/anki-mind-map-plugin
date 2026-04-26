@@ -10,6 +10,11 @@ from aqt.utils import showInfo, tooltip
 
 from .localization import IMPORT_SUFFIX, get_texts
 
+try:
+    from ..manager.transaction import collection_transaction
+except ImportError:  # When loaded as a top-level package (e.g., tests)
+    from manager.transaction import collection_transaction
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_DECK_ID = 0
@@ -61,16 +66,17 @@ def _import_one_mindmap(mw, mindmap_data, model):
 def _import_mindmap_batch(mw, mindmaps, get_model):
     imported_count = 0
     model = None
-    for mindmap_data in mindmaps:
-        if not isinstance(mindmap_data, dict):
-            continue
-        try:
-            if model is None:
-                model = get_model()
-            _import_one_mindmap(mw, mindmap_data, model)
-            imported_count += 1
-        except Exception:
-            logger.exception("Error importing mind map %s", mindmap_data.get('title', 'unknown'))
+    with collection_transaction(mw.col, "import_mindmap_batch"):
+        for mindmap_data in mindmaps:
+            if not isinstance(mindmap_data, dict):
+                continue
+            try:
+                if model is None:
+                    model = get_model()
+                _import_one_mindmap(mw, mindmap_data, model)
+                imported_count += 1
+            except Exception:
+                logger.exception("Error importing mind map %s", mindmap_data.get('title', 'unknown'))
     return imported_count
 
 

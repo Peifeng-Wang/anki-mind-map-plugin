@@ -4,6 +4,11 @@ import uuid
 
 from .tree_utils import remove_node
 
+try:
+    from ..manager.transaction import collection_transaction
+except ImportError:  # When loaded as a top-level package (e.g., tests)
+    from manager.transaction import collection_transaction
+
 logger = logging.getLogger(__name__)
 
 
@@ -102,7 +107,6 @@ def handle_create_map_link(dialog, params_json: str):
 
         # Save target map
         target_note['Data'] = json.dumps(target_data)
-        dialog.mw.col.update_note(target_note)
 
         # Update source root with link info (include title for display)
         if 'linkedMaps' not in source_root:
@@ -115,7 +119,10 @@ def handle_create_map_link(dialog, params_json: str):
 
         # Save source map
         dialog.note['Data'] = json.dumps(source_data)
-        dialog.mw.col.update_note(dialog.note)
+
+        with collection_transaction(dialog.mw.col, "create_map_link"):
+            dialog.mw.col.update_note(target_note)
+            dialog.mw.col.update_note(dialog.note)
 
         # Notify JavaScript of success
         dialog.web.eval(f"if(typeof onMapLinkCreated === 'function') onMapLinkCreated({json.dumps(target_map_id)}, {json.dumps(linked_node_id)});")
@@ -233,31 +240,35 @@ def handle_unlink_map(dialog, params_json: str):
 
         # Save source map
         dialog.note['Data'] = json.dumps(source_data)
-        dialog.mw.col.update_note(dialog.note)
 
-        # Delete the linked node from target map
-        if linked_node_id:
-            try:
-                target_note = dialog.mw.col.get_note(target_map_id)
-                target_data_str = target_note['Data']
-                target_data = json.loads(target_data_str)
+        # Group source + target writes in a single transaction so a partial
+        # failure cannot leave the maps in an inconsistent linked state.
+        with collection_transaction(dialog.mw.col, "unlink_map"):
+            dialog.mw.col.update_note(dialog.note)
 
-                target_root = target_data.get('data')
-                if target_root:
-                    remove_node(target_root, linked_node_id)
+            # Delete the linked node from target map
+            if linked_node_id:
+                try:
+                    target_note = dialog.mw.col.get_note(target_map_id)
+                    target_data_str = target_note['Data']
+                    target_data = json.loads(target_data_str)
 
-                # Save target map
-                target_note['Data'] = json.dumps(target_data)
-                dialog.mw.col.update_note(target_note)
+                    target_root = target_data.get('data')
+                    if target_root:
+                        remove_node(target_root, linked_node_id)
 
-                logger.info("Removed linked node %s from target map %s", linked_node_id, target_map_id)
+                    # Save target map
+                    target_note['Data'] = json.dumps(target_data)
+                    dialog.mw.col.update_note(target_note)
 
-                # Refresh target map window if open
-                from .main_dialog import MindMapDialog
-                MindMapDialog._refresh_editor_if_open(dialog.mw, target_map_id)
+                    logger.info("Removed linked node %s from target map %s", linked_node_id, target_map_id)
 
-            except Exception as e:
-                logger.exception("Error removing linked node from target map")
+                    # Refresh target map window if open
+                    from .main_dialog import MindMapDialog
+                    MindMapDialog._refresh_editor_if_open(dialog.mw, target_map_id)
+
+                except Exception as e:
+                    logger.exception("Error removing linked node from target map")
 
         # Refresh source map
         dialog._handle_refresh()

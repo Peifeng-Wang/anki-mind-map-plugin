@@ -10,7 +10,7 @@ function loadFloatingNode(nodeData) {
     // Create node element
     var nodeElement = document.createElement('jmnode');
     nodeElement.setAttribute('nodeid', nodeData.id);
-    nodeElement.innerHTML = nodeData.topic || ''; // Use saved topic or empty
+    nodeElement.innerHTML = escapeHtml(nodeData.topic || ''); // Use saved topic or empty
     nodeElement.style.position = 'absolute';
     nodeElement.style.left = nodeData.x + 'px';
     nodeElement.style.top = nodeData.y + 'px';
@@ -494,7 +494,7 @@ function exitFloatingNodeEditMode(floatingNode, newText) {
 
     MM.state.isEditing = false;
     floatingNode.topic = newText || ''; // Keep empty if no text
-    floatingNode.element.innerHTML = floatingNode.topic; // Use innerHTML to match jsMind
+    floatingNode.element.innerHTML = escapeHtml(floatingNode.topic); // Use innerHTML to match jsMind
 
     saveHistory();
     scheduleAutoSave();

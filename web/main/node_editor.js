@@ -238,12 +238,14 @@ function exitEditMode() {
                 MM.state.jm.update_node(MM.state.editingNodeId, htmlText);
 
                 if (MM.state.jm.view.opts.support_html) {
+                    // TODO: topic may contain rich-text, sanitize via DOMPurify
                     nodeElement.innerHTML = htmlText;
                 } else {
                     nodeElement.textContent = htmlText;
                 }
             } else {
                 if (MM.state.jm.view.opts.support_html) {
+                    // TODO: topic may contain rich-text, sanitize via DOMPurify
                     nodeElement.innerHTML = node.topic;
                 } else {
                     nodeElement.textContent = node.topic;

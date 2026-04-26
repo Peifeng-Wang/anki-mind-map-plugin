@@ -245,10 +245,6 @@ class MindMapDialog(QDialog):
         try:
             logger.debug(f"DEBUG: Refresh requested for note {self.note_id}")
 
-            # Force reload latest data from database
-            # Clear possible cache first
-            self.mw.col.flush()
-
             # Completely re-fetch note (don't use self.note)
             fresh_note = self.mw.col.get_note(self.note_id)
             data_str = fresh_note['Data']
