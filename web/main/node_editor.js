@@ -72,7 +72,10 @@ function enterEditMode(node) {
     function autoResize() {
         if (!textarea || !textarea.parentNode) return;
 
-        // Create hidden div for measurement
+        // Create hidden div for measurement.
+        // padding/border/line-height are kept in sync with .mm-node-input in
+        // style-interactions.css; reading textarea.style.* won't return values
+        // set via the CSS class, so we hardcode them to match.
         var measureDiv = document.createElement('div');
         measureDiv.style.cssText = `
             position: absolute;
@@ -82,9 +85,9 @@ function enterEditMode(node) {
             font-family: ${textarea.style.fontFamily};
             font-size: ${textarea.style.fontSize};
             font-weight: ${textarea.style.fontWeight};
-            line-height: ${textarea.style.lineHeight};
-            padding: ${textarea.style.padding};
-            border: ${textarea.style.border};
+            line-height: 1.5;
+            padding: 8px;
+            border: 2px solid #4A90E2;
             box-sizing: border-box;
             max-width: 500px;
         `;
