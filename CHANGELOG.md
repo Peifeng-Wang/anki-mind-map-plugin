@@ -33,3 +33,12 @@
 - Optimized **Node Zoom Logic** (e.g., handling zoom in the view provider).
 - Refined **Scrollbar Styles** for a modern, custom appearance.
 - Updated various **Icons/Visual Indicators** within the Mind Map editor interface.
+
+## [1.2.0] - 2026-4-26
+
+### Added
+- Added `quick_open_action` configuration. Users can now set `Ctrl + M` to either open the last active mind map (`last_mindmap`) or the mind map selection interface (`manager`).
+
+### Changed
+- Refactoring: Completed a large-scale architectural refactoring of the project.
+- Optimization: Significantly improved overall system performance.

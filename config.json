@@ -1,6 +1,7 @@
 {
     "last_mindmap_id": null,
     "quick_open_shortcut": "Ctrl+M",
+    "quick_open_action": "last_mindmap",
     "enable_floating_nodes": false,
     "background_image": "",
     "background_overlay": "rgba(245, 245, 220, 0.0)",

@@ -60,7 +60,20 @@ if not _running_under_pytest():
     gui_hooks.collection_did_load.append(on_collection_loaded)
 
     def on_open_manager():
-        # We keep a reference to avoid GC
+        """Open the Mind Map Manager, reusing the existing window if still alive."""
+        existing = getattr(mw, 'mindmap_manager', None)
+        if existing is not None:
+            try:
+                existing.isVisible()  # probe: raises RuntimeError if C++ side was destroyed
+            except RuntimeError:
+                existing = None
+            if existing is not None:
+                existing.refresh_list()
+                existing.show()
+                existing.raise_()
+                existing.activateWindow()
+                return
+        # First call, or previous instance was destroyed — create fresh
         mw.mindmap_manager = MindMapManager(mw)
         mw.mindmap_manager.show()
 
@@ -94,6 +107,16 @@ if not _running_under_pytest():
         first_id = ids[0]
         MindMapDialog.open_instance(mw, first_id)
 
+    def quick_open_action_handler():
+        """Dispatch the configurable quick-open shortcut to the right action."""
+        config = mw.addonManager.getConfig(__name__) or {}
+        mode = config.get('quick_open_action', 'last_mindmap')
+        if mode == 'manager':
+            on_open_manager()
+        else:
+            # Default + safe fallback for unknown values
+            open_last_mindmap()
+
     # Setup Menu
     action_manager = QAction("Mind Map Manager", mw)
     action_manager.triggered.connect(on_open_manager)
@@ -106,13 +129,17 @@ if not _running_under_pytest():
     action_backup.triggered.connect(show_backup_dialog)
 
     action_quick = QAction("Quick Open Mind Map", mw)
-    action_quick.triggered.connect(open_last_mindmap)
-    # Get shortcut from config, default to Ctrl+M
+    action_quick.triggered.connect(quick_open_action_handler)
+    # Get shortcut and target action from config
     config = mw.addonManager.getConfig(__name__) or {}
     shortcut_key = config.get('quick_open_shortcut', 'Ctrl+M')
+    quick_action_mode = config.get('quick_open_action', 'last_mindmap')
     action_quick.setShortcut(QKeySequence(shortcut_key))
-    # Show shortcut in menu item text
-    action_quick.setText(f"Quick Open Mind Map ({shortcut_key})")
+    # Label reflects the configured target; refreshed on Anki restart
+    if quick_action_mode == 'manager':
+        action_quick.setText(f"Open Mind Map Manager ({shortcut_key})")
+    else:
+        action_quick.setText(f"Quick Open Mind Map ({shortcut_key})")
 
     menu = mw.form.menuTools.addMenu("Mind Map")
     menu.addAction(action_manager)

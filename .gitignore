@@ -26,6 +26,29 @@ wheels/
 *.manifest
 *.spec
 
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Environment Variables ---
+.env
+.env.local
+.env.*.local
+
+# --- Testing & Coverage ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+
+# --- Node.js ---
+node_modules/
+
 # --- AI Tools & Cache ---
 .aider*
 .claude/
