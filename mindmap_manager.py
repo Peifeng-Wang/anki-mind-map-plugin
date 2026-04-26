@@ -23,11 +23,7 @@ from .manager.note_utils import (
 )
 from .manager.linked_cleanup import (
     cleanup_linked_nodes_on_delete,
-    get_linked_maps,
-    load_target_map,
     remove_linked_node,
-    remove_node_by_id,
-    refresh_editor_if_open,
 )
 
 
@@ -103,21 +99,6 @@ class MindMapManager(QDialog):
             return None
         return self.notes[row][0]
 
-    def _get_note_title(self, note):
-        return get_note_title(note)
-
-    def _get_allow_new_cards(self, note):
-        return get_allow_new_cards(note)
-
-    def _load_note_data(self, note):
-        return load_note_data(note)
-
-    def _save_note_data(self, note, data):
-        save_note_data(note, data)
-
-    def _sync_root_title(self, note, new_title):
-        sync_root_title(note, new_title)
-
     def on_new(self):
         title, ok = getText("Enter a title for the new Mind Map:")
         if not ok or not title.strip():
@@ -150,7 +131,7 @@ class MindMapManager(QDialog):
 
         if ok and new_title.strip():
             note[FIELD_TITLE] = new_title
-            self._sync_root_title(note, new_title)
+            sync_root_title(note, new_title)
             self.mw.col.update_note(note)
             self.refresh_list()
 
@@ -163,27 +144,24 @@ class MindMapManager(QDialog):
 
         if askUser(f"Are you sure you want to delete '{title}'? This cannot be undone."):
             # Before deleting, clean up linked nodes in other maps
-            self._cleanup_linked_nodes_on_delete(nid)
+            cleanup_linked_nodes_on_delete(self.mw, nid)
             self.mw.col.remove_notes([nid])
             self.refresh_list()
 
-    def _cleanup_linked_nodes_on_delete(self, source_map_id):
-        cleanup_linked_nodes_on_delete(self.mw, source_map_id)
+    def _get_note_title(self, note):
+        return get_note_title(note)
 
-    def _get_linked_maps(self, map_data):
-        return get_linked_maps(map_data)
+    def _get_allow_new_cards(self, note):
+        return get_allow_new_cards(note)
 
-    def _load_target_map(self, target_map_id):
-        return load_target_map(self.mw, target_map_id)
+    def _load_note_data(self, note):
+        return load_note_data(note)
+
+    def _save_note_data(self, note, data):
+        save_note_data(note, data)
 
     def _remove_linked_node(self, map_data, linked_node_id):
         remove_linked_node(map_data, linked_node_id)
-
-    def _remove_node_by_id(self, node, node_id, parent_children_list=None, index=None):
-        return remove_node_by_id(node, node_id, parent_children_list, index)
-
-    def _refresh_editor_if_open(self, target_map_id):
-        refresh_editor_if_open(self.mw, target_map_id)
 
     def on_toggle_active(self):
         """Toggle whether this mind map allows new card associations"""

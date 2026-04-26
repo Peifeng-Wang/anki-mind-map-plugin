@@ -263,7 +263,7 @@ def handle_unlink_map(dialog, params_json: str):
         dialog.web.eval("if(typeof showToast === 'function') showToast('Link removed');")
         logger.info(f"Unlinked map {target_map_id} from {dialog.note_id}")
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error unlinking map")
         import traceback
         traceback.print_exc()

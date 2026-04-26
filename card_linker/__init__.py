@@ -1,13 +1,8 @@
 from .constants import (
     BR_RE,
     DATA_MID_RE,
-    DATA_NID_RE,
     HTML_TAG_RE,
-    LINK_HTML_TEMPLATE,
-    MINDMAP_LINK_DIV_RE,
     MINDMAP_LINK_RE,
-    RESET_BUTTON_JS,
-    UPDATE_BUTTON_JS_TEMPLATE,
     _sync_flags,
     card_sync,
     node_sync,
@@ -22,7 +17,6 @@ from .core import (
 from .editor import (
     add_editor_button,
     clear_mindmap_selection,
-    on_editor_btn_click,
     on_editor_load_note,
     reset_mindmap_button,
     update_mindmap_button,

@@ -23,7 +23,10 @@ def cleanup_linked_nodes_on_delete(mw, source_map_id):
                 mw.col.update_note(target_note)
 
                 print(f"Removed linked node {linked_node_id} from map {target_map_id}")
-                refresh_editor_if_open(mw, target_map_id)
+                for editor in getattr(mw, 'mindmap_editors', []):
+                    if editor.note_id == target_map_id:
+                        editor._handle_refresh()
+                        break
 
             except Exception as e:
                 print(f"Error cleaning up linked node in map {target_map_id}: {e}")
@@ -62,11 +65,3 @@ def remove_node_by_id(node, node_id, parent_children_list=None, index=None):
                 return True
 
     return False
-
-
-def refresh_editor_if_open(mw, target_map_id):
-    if hasattr(mw, 'mindmap_editors'):
-        for editor in mw.mindmap_editors:
-            if editor.note_id == target_map_id:
-                editor._handle_refresh()
-                break

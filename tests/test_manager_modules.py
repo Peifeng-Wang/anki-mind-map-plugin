@@ -388,23 +388,6 @@ class LinkedCleanupTests(unittest.TestCase):
         self.assertIs(note, target_note)
         self.assertEqual(data, {"data": {}})
 
-    def test_refresh_editor_if_open_refreshes_matching_editor(self):
-        editor = types.SimpleNamespace(note_id=5, _handle_refresh=lambda: setattr(editor, "refreshed", True))
-        self.mw.mindmap_editors = [editor]
-        self.linked_cleanup.refresh_editor_if_open(self.mw, 5)
-        self.assertTrue(editor.refreshed)
-
-    def test_refresh_editor_if_open_skips_non_matching(self):
-        editor = types.SimpleNamespace(note_id=5, _handle_refresh=lambda: setattr(editor, "refreshed", True))
-        self.mw.mindmap_editors = [editor]
-        self.linked_cleanup.refresh_editor_if_open(self.mw, 99)
-        self.assertFalse(hasattr(editor, "refreshed"))
-
-    def test_refresh_editor_if_open_no_editors_attr(self):
-        mw = types.SimpleNamespace()
-        # Should not raise
-        self.linked_cleanup.refresh_editor_if_open(mw, 1)
-
     def test_cleanup_linked_nodes_on_delete_removes_linked_nodes(self):
         source_note = FakeNote(
             1,

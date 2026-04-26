@@ -70,16 +70,6 @@ def validate_and_cleanup_mindmap(mindmap_note):
             mw.col.update_note(mindmap_note)
             logger.info("Cleaned up mindmap %s: removed %s invalid noteId references", mindmap_note.id, removed_count)
 
-        try:
-            from ..cross_link_manager import CrossLinkManager
-            removed_cross, removed_back = CrossLinkManager.validate_links(mindmap_note.id)
-            if removed_cross > 0 or removed_back > 0:
-                logger.info("Cleaned up %s invalid cross-links and %s invalid back-links", removed_cross, removed_back)
-        except ImportError as exc:
-            logger.debug("CrossLinkManager not available: %s", exc)
-        except Exception as exc:
-            logger.exception("Error validating cross-links: %s", exc)
-
     except Exception as exc:
         logger.exception("Error validating mindmap: %s", exc)
 

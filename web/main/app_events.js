@@ -101,14 +101,6 @@ function initEditor(data) {
             }, 250);
         }
 
-        jm.add_event_listener(function (type, data) {
-            if (type === 3) {
-                console.log('Detected change, saving history...');
-                saveHistory();
-                scheduleAutoSave();
-            }
-        });
-
         function scheduleOverlayRerender() {
             if (overlayRenderTimer) {
                 clearTimeout(overlayRenderTimer);
