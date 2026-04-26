@@ -137,7 +137,7 @@ test('main.js remains a compatibility loader for split editor modules', () => {
   const modulePaths = editorModulePaths();
 
   assert.ok(loader.includes('document.write'), 'main.js should synchronously load split modules');
-  assert.strictEqual(modulePaths.length, 19, 'expected focused editor modules');
+  assert.strictEqual(modulePaths.length, 23, 'expected focused editor modules');
   modulePaths.forEach((relPath) => {
     assert.ok(loader.includes(relPath.replace('web/', '')), `${relPath} missing from loader`);
   });
