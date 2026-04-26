@@ -341,27 +341,6 @@ class LinkedCleanupTests(unittest.TestCase):
             [{"targetMapId": 2, "linkedNodeId": "n1"}],
         )
 
-    def test_remove_node_by_id_direct_child(self):
-        children = [{"id": "a"}, {"id": "b"}]
-        root = {"id": "root", "children": children}
-        result = self.linked_cleanup.remove_node_by_id(root, "a", root["children"], 0)
-        self.assertTrue(result)
-        self.assertEqual(children, [{"id": "b"}])
-
-    def test_remove_node_by_id_nested(self):
-        root = {"id": "root", "children": [{"id": "a", "children": [{"id": "b"}]}]}
-        result = self.linked_cleanup.remove_node_by_id(root, "b")
-        self.assertTrue(result)
-        self.assertEqual(root["children"][0].get("children", []), [])
-
-    def test_remove_node_by_id_not_found(self):
-        root = {"id": "root", "children": [{"id": "a"}]}
-        result = self.linked_cleanup.remove_node_by_id(root, "missing")
-        self.assertFalse(result)
-
-    def test_remove_node_by_id_non_dict_returns_false(self):
-        self.assertFalse(self.linked_cleanup.remove_node_by_id("notadict", "x"))
-
     def test_remove_linked_node(self):
         payload = {"data": {"id": "root", "children": [{"id": "target"}]}}
         self.linked_cleanup.remove_linked_node(payload, "target")

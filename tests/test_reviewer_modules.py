@@ -297,25 +297,25 @@ class TestReviewerLinkResolver(unittest.TestCase):
 
     def test_node_exists_root(self):
         lr = import_plugin_module("reviewer.link_resolver")
-        self.assertTrue(lr._node_exists({"id": "root"}, "root"))
+        self.assertIsNotNone(lr.find_node({"id": "root"}, "root"))
 
     def test_node_exists_child(self):
         lr = import_plugin_module("reviewer.link_resolver")
         tree = {"id": "root", "children": [{"id": "x"}, {"id": "y"}]}
-        self.assertTrue(lr._node_exists(tree, "x"))
-        self.assertTrue(lr._node_exists(tree, "y"))
-        self.assertFalse(lr._node_exists(tree, "z"))
+        self.assertIsNotNone(lr.find_node(tree, "x"))
+        self.assertIsNotNone(lr.find_node(tree, "y"))
+        self.assertIsNone(lr.find_node(tree, "z"))
 
     def test_node_exists_nested(self):
         lr = import_plugin_module("reviewer.link_resolver")
         tree = {"id": "root", "children": [{"id": "a", "children": [{"id": "b"}]}]}
-        self.assertTrue(lr._node_exists(tree, "b"))
-        self.assertFalse(lr._node_exists(tree, "c"))
+        self.assertIsNotNone(lr.find_node(tree, "b"))
+        self.assertIsNone(lr.find_node(tree, "c"))
 
     def test_node_exists_non_dict_skipped(self):
         lr = import_plugin_module("reviewer.link_resolver")
         tree = {"id": "root", "children": [None, "bad", {"id": "ok"}]}
-        self.assertTrue(lr._node_exists(tree, "ok"))
+        self.assertIsNotNone(lr.find_node(tree, "ok"))
 
     def test_resolve_mindmap_link_success(self):
         lr = import_plugin_module("reviewer.link_resolver")
@@ -426,7 +426,6 @@ class TestReviewIndicatorFacade(unittest.TestCase):
         ri = import_plugin_module("review_indicator")
         # Ensure all expected names are accessible
         self.assertTrue(callable(ri._find_mindmap_link))
-        self.assertTrue(callable(ri._node_exists))
         self.assertTrue(callable(ri._resolve_mindmap_link))
         self.assertTrue(callable(ri._build_indicator_js))
         self.assertTrue(callable(ri.show_mindmap_indicator))

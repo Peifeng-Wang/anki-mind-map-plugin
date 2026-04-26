@@ -320,7 +320,6 @@ class PythonRefactorTests(unittest.TestCase):
         self.mw.col = FakeCollection(notes={2: mm_note})
 
         self.assertEqual(review_indicator._find_mindmap_link(link_note), ("Front", 2, "node:1"))
-        self.assertTrue(review_indicator._node_exists({"id": "root", "children": [{"id": "x"}]}, "x"))
         title, cleanup = review_indicator._resolve_mindmap_link(2, "node:1")
         self.assertEqual(title, 'Title "quoted"')
         self.assertFalse(cleanup)

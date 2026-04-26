@@ -12,7 +12,6 @@ from .reviewer.link_resolver import (
     MINDMAP_ID_RE,
     NODE_ID_RE,
     _find_mindmap_link,
-    _node_exists,
     _resolve_mindmap_link,
 )
 from .reviewer.renderer import MINDMAP_COMMAND_PREFIX, _build_pycmd_param, _render_indicator

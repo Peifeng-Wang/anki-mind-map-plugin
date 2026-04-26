@@ -1,5 +1,6 @@
 import logging
 
+from ..core.tree_utils import remove_node
 from .note_utils import load_note_data, save_note_data
 from .transaction import collection_transaction
 
@@ -53,21 +54,4 @@ def load_target_map(mw, target_map_id):
 
 def remove_linked_node(map_data, linked_node_id):
     if 'data' in map_data:
-        remove_node_by_id(map_data['data'], linked_node_id)
-
-
-def remove_node_by_id(node, node_id, parent_children_list=None, index=None):
-    if not isinstance(node, dict):
-        return False
-
-    if node.get('id') == node_id:
-        if parent_children_list is not None and index is not None:
-            parent_children_list.pop(index)
-            return True
-
-    if 'children' in node:
-        for child_index, child in enumerate(node['children']):
-            if remove_node_by_id(child, node_id, node['children'], child_index):
-                return True
-
-    return False
+        remove_node(map_data['data'], linked_node_id)

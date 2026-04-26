@@ -4,6 +4,8 @@ import re
 
 from aqt import mw
 
+from ..core.tree_utils import find_node
+
 
 MINDMAP_ID_RE = re.compile(r'data-mid="(\d+)"')
 NODE_ID_RE = re.compile(r'data-nid="([^"]+)"')
@@ -27,26 +29,6 @@ def _find_mindmap_link(note):
     return None
 
 
-def _node_exists(node, node_id):
-    """Return whether node_id exists in a mind map node tree."""
-    nodes_to_check = [node]
-    while nodes_to_check:
-        current_node = nodes_to_check.pop()
-        if not isinstance(current_node, dict):
-            continue
-
-        if current_node.get("id") == node_id:
-            return True
-
-        children = current_node.get("children", [])
-        if isinstance(children, list):
-            nodes_to_check.extend(reversed(children))
-        else:
-            nodes_to_check.extend(reversed(list(children)))
-
-    return False
-
-
 def _resolve_mindmap_link(mindmap_id, node_id):
     """Return (mindmap_title, should_cleanup_link) for a linked mind map."""
     try:
@@ -60,7 +42,7 @@ def _resolve_mindmap_link(mindmap_id, node_id):
         data = json.loads(mm_note["Data"])
         node_exists = False
         if "data" in data:
-            node_exists = _node_exists(data["data"], node_id)
+            node_exists = find_node(data["data"], node_id) is not None
 
         if not node_exists:
             return mindmap_title, True
