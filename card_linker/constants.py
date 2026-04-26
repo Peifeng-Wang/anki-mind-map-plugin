@@ -89,5 +89,21 @@ class _SyncFlags:
         finally:
             self.syncing_from_card = False
 
+    @contextmanager
+    def node_sync(self):
+        self.syncing_from_node = True
+        try:
+            yield
+        finally:
+            self.syncing_from_node = False
+
 
 _sync_flags = _SyncFlags()
+
+
+def node_sync():
+    return _sync_flags.node_sync()
+
+
+def card_sync():
+    return _sync_flags.card_sync()

@@ -48,8 +48,14 @@ class TestSyncMethods(unittest.TestCase):
         card_note = FakeNote({"Front": "Old Topic"})
         self.dialog.mw.col.get_note.return_value = card_note
 
+        from contextlib import contextmanager
+
+        @contextmanager
+        def fake_node_sync():
+            yield
+
         mock_card_linker = MagicMock()
-        mock_card_linker._syncing_from_node = False
+        mock_card_linker.node_sync = fake_node_sync
         sys.modules['mindmap_editor.card_linker'] = mock_card_linker
         import mindmap_editor
         mindmap_editor.card_linker = mock_card_linker

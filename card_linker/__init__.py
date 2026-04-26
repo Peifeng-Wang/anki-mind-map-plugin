@@ -10,6 +10,8 @@ from .constants import (
     UPDATE_BUTTON_JS_TEMPLATE,
     _SyncFlags,
     _sync_flags,
+    card_sync,
+    node_sync,
 )
 from .core import (
     delete_node_from_mindmap,

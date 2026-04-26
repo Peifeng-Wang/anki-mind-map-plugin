@@ -29,8 +29,14 @@ _mock_qt.QDialog.__name__ = 'QDialog'
 from mindmap_editor.main_dialog import MindMapDialog
 
 # Mock card_linker submodule used by mindmap_editor
+from contextlib import contextmanager
+
+@contextmanager
+def _fake_node_sync():
+    yield
+
 _mock_card_linker = MagicMock()
-_mock_card_linker._syncing_from_node = False
+_mock_card_linker.node_sync = _fake_node_sync
 sys.modules['mindmap_editor.card_linker'] = _mock_card_linker
 import mindmap_editor
 mindmap_editor.card_linker = _mock_card_linker

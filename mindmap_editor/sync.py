@@ -27,47 +27,43 @@ def sync_nodes_to_cards(dialog, changed_nodes):
             continue
 
         try:
-            # Prevent sync loop
-            card_linker._syncing_from_node = True
+            with card_linker.node_sync():
+                # Get linked card
+                card_note = dialog.mw.col.get_note(note_id)
 
-            # Get linked card
-            card_note = dialog.mw.col.get_note(note_id)
+                # Check if card has Front field
+                if 'Front' not in card_note:
+                    continue
 
-            # Check if card has Front field
-            if 'Front' not in card_note:
-                continue
+                # Get current front content
+                front_content = card_note['Front']
 
-            # Get current front content
-            front_content = card_note['Front']
+                # Extract first line using pre-compiled regex
+                front_text = _BR_RE.sub('\n', front_content)
+                clean_text = _HTML_TAG_RE.sub('', front_text)
+                lines = clean_text.split('\n')
+                first_line = lines[0].strip() if lines else ''
 
-            # Extract first line using pre-compiled regex
-            front_text = _BR_RE.sub('\n', front_content)
-            clean_text = _HTML_TAG_RE.sub('', front_text)
-            lines = clean_text.split('\n')
-            first_line = lines[0].strip() if lines else ''
-
-            # Update if first line differs from node content
-            if first_line != new_topic:
-                # Replace first line, keep rest
-                # Need to preserve HTML format
-                if _BR_RE.search(front_content):
-                    # Has newline
-                    parts = _BR_RE.split(front_content, maxsplit=1)
-                    if len(parts) > 1:
-                        card_note['Front'] = new_topic + '<br>' + parts[1]
+                # Update if first line differs from node content
+                if first_line != new_topic:
+                    # Replace first line, keep rest
+                    # Need to preserve HTML format
+                    if _BR_RE.search(front_content):
+                        # Has newline
+                        parts = _BR_RE.split(front_content, maxsplit=1)
+                        if len(parts) > 1:
+                            card_note['Front'] = new_topic + '<br>' + parts[1]
+                        else:
+                            card_note['Front'] = new_topic
                     else:
+                        # No newline, replace entire
                         card_note['Front'] = new_topic
-                else:
-                    # No newline, replace entire
-                    card_note['Front'] = new_topic
 
-                dialog.mw.col.update_note(card_note)
-                logger.info("Synced mindmap node to card: '%s' -> '%s'", first_line, new_topic)
+                    dialog.mw.col.update_note(card_note)
+                    logger.info("Synced mindmap node to card: '%s' -> '%s'", first_line, new_topic)
 
         except Exception as e:
             logger.exception("Error syncing node %s to card %s", node_id, note_id)
-        finally:
-            card_linker._syncing_from_node = False
 
 
 def sync_map_linked_nodes(dialog, changed_nodes):
