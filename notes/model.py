@@ -7,6 +7,9 @@ from .config import (
     MODEL_FIELDS,
     MODEL_NAME,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_or_create_mindmap_model():
@@ -33,7 +36,7 @@ def _ensure_mindmap_model_schema(col, model) -> None:
     if not _model_has_field(model, FIELD_ALLOW_NEW_CARDS):
         col.models.add_field(model, col.models.new_field(FIELD_ALLOW_NEW_CARDS))
         col.models.save(model)
-        print(ALLOW_NEW_CARDS_MIGRATION_MESSAGE)
+        logger.info(ALLOW_NEW_CARDS_MIGRATION_MESSAGE)
 
 
 def _model_has_field(model, field_name: str) -> bool:

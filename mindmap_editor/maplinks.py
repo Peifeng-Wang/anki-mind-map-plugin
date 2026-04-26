@@ -11,7 +11,11 @@ def handle_get_editable_maps(dialog):
     """Get list of editable mind maps for the selection dialog, including linked status"""
     try:
         maps_list = []
-        ids = dialog.mw.col.find_notes('"note:MindMap Master"')
+        try:
+            from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
+        except ImportError:
+            from card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
+        ids = dialog.mw.col.find_notes(MINDMAP_NOTE_TYPE_QUERY)
 
         # Get current linked maps from source root
         linked_map_ids = set()

@@ -4,7 +4,7 @@ from aqt import mw
 from aqt.qt import QCursor, QMenu, QTimer
 from aqt.utils import tooltip
 
-from .constants import DATA_MID_RE, DATA_NID_RE, MINDMAP_LINK_DIV_RE, RESET_BUTTON_JS, UPDATE_BUTTON_JS_TEMPLATE
+from .constants import DATA_MID_RE, DATA_NID_RE, MINDMAP_LINK_DIV_RE, MINDMAP_NOTE_TYPE_QUERY, RESET_BUTTON_JS, UPDATE_BUTTON_JS_TEMPLATE
 from .core import delete_node_from_mindmap, link_existing_card_to_mindmap
 from .utils import parse_mindmap_link
 from .validation import remove_link_from_card
@@ -143,7 +143,7 @@ def reset_mindmap_button(editor):
 
 
 def on_editor_btn_click(editor):
-    ids = mw.col.find_notes('"note:MindMap Master"')
+    ids = mw.col.find_notes(MINDMAP_NOTE_TYPE_QUERY)
     if not ids:
         tooltip("No Mind Maps found. Create one first from Tools > Mind Map > Mind Map Manager")
         return

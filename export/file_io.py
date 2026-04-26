@@ -1,7 +1,10 @@
 """Filesystem & viewer I/O helpers"""
+import logging
 import os
 import filecmp
 import shutil
+
+logger = logging.getLogger(__name__)
 
 
 def _get_documents_path(default_filename):
@@ -46,7 +49,7 @@ def _copy_standalone_viewer(filename):
                 return viewer_dest
             shutil.copy2(viewer_source, viewer_dest)
             return viewer_dest
-    except Exception as e:
-        print(f"Failed to copy viewer: {e}")
+    except Exception:
+        logger.exception("Failed to copy viewer")
 
     return None

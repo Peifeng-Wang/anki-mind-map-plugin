@@ -19,8 +19,12 @@ def export_all_mindmaps(parent_widget, mw):
         tuple: (success: bool, filename: str or None, viewer_path: str or None, count: int)
     """
     try:
+        try:
+            from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
+        except ImportError:
+            from card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
         # Find all mind map notes
-        ids = mw.col.find_notes('"note:MindMap Master"')
+        ids = mw.col.find_notes(MINDMAP_NOTE_TYPE_QUERY)
 
         if not ids:
             return False, None, None, 0

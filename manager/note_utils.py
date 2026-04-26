@@ -1,5 +1,10 @@
 import json
 
+try:
+    from ..card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
+except ImportError:  # When loaded as a top-level package (e.g., tests)
+    from card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
+
 
 FIELD_TITLE = 'Title'
 FIELD_DATA = 'Data'
@@ -8,7 +13,7 @@ ALLOW_NEW_CARDS_ENABLED = "1"
 ALLOW_NEW_CARDS_DISABLED = "0"
 ACTIVE_ICON = "✓"
 INACTIVE_ICON = "✗"
-NOTE_QUERY = '"note:MindMap Master"'
+NOTE_QUERY = MINDMAP_NOTE_TYPE_QUERY
 
 
 def get_note_title(note):

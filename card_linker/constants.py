@@ -4,6 +4,10 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
+# --- Note type identity ---
+MINDMAP_NOTE_TYPE = "MindMap Master"
+MINDMAP_NOTE_TYPE_QUERY = f'"note:{MINDMAP_NOTE_TYPE}"'
+
 # --- Module-level compiled regex patterns ---
 MINDMAP_LINK_RE = re.compile(
     r'<div\s+id="mindmap-link"\s+data-mid="(\d+)"\s+data-nid="([^"]+)"\s+style="display:none;">\s*</div>',

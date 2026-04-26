@@ -1,5 +1,6 @@
 """Import business logic for the backup tool."""
 import json
+import logging
 import os
 import traceback
 import uuid
@@ -8,6 +9,8 @@ from aqt.qt import QFileDialog
 from aqt.utils import showInfo, tooltip
 
 from .localization import IMPORT_SUFFIX, get_texts
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DECK_ID = 0
 JSON_FILE_FILTER = "JSON Files (*.json)"
@@ -66,8 +69,8 @@ def _import_mindmap_batch(mw, mindmaps, get_model):
                 model = get_model()
             _import_one_mindmap(mw, mindmap_data, model)
             imported_count += 1
-        except Exception as e:
-            print(f"Error importing mind map {mindmap_data.get('title', 'unknown')}: {e}")
+        except Exception:
+            logger.exception("Error importing mind map %s", mindmap_data.get('title', 'unknown'))
     return imported_count
 
 

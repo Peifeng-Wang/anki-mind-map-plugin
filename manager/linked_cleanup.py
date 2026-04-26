@@ -1,4 +1,8 @@
+import logging
+
 from .note_utils import load_note_data, save_note_data
+
+logger = logging.getLogger(__name__)
 
 
 def cleanup_linked_nodes_on_delete(mw, source_map_id):
@@ -22,17 +26,17 @@ def cleanup_linked_nodes_on_delete(mw, source_map_id):
                 save_note_data(target_note, target_data)
                 mw.col.update_note(target_note)
 
-                print(f"Removed linked node {linked_node_id} from map {target_map_id}")
+                logger.info("Removed linked node %s from map %s", linked_node_id, target_map_id)
                 for editor in getattr(mw, 'mindmap_editors', []):
                     if editor.note_id == target_map_id:
                         editor._handle_refresh()
                         break
 
-            except Exception as e:
-                print(f"Error cleaning up linked node in map {target_map_id}: {e}")
+            except Exception:
+                logger.exception("Error cleaning up linked node in map %s", target_map_id)
 
-    except Exception as e:
-        print(f"Error during cleanup on delete: {e}")
+    except Exception:
+        logger.exception("Error during cleanup on delete")
 
 
 def get_linked_maps(map_data):

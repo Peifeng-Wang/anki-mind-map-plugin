@@ -1,9 +1,11 @@
 """
 Display mind map association indicator in review interface
 """
-import traceback
+import logging
 
 from aqt import mw, gui_hooks
+
+logger = logging.getLogger(__name__)
 
 from .reviewer.js import CLEAR_INDICATOR_JS, _build_indicator_js
 from .reviewer.link_resolver import (
@@ -33,7 +35,7 @@ def show_mindmap_indicator():
     mindmap_title, should_cleanup_link = _resolve_mindmap_link(mindmap_id, node_id)
 
     if should_cleanup_link:
-        print(f"Node {node_id} no longer exists, cleaning up card link in review")
+        logger.info("Node %s no longer exists, cleaning up card link in review", node_id)
         from . import card_linker
         card_linker.remove_link_from_card(note, field_name)
         _render_indicator()
@@ -54,9 +56,8 @@ def on_reviewer_pycmd(handled, cmd, _):
             # Open mind map
             from . import mindmap_opener
             mindmap_opener.open_mindmap(mindmap_id, node_id)
-        except Exception as e:
-            print(f"Error opening mindmap from reviewer: {e}")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Error opening mindmap from reviewer")
         return (True, None)
     return handled
 

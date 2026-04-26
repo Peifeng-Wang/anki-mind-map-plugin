@@ -2,6 +2,7 @@ from aqt import mw, gui_hooks
 from aqt.qt import *
 from aqt.utils import tooltip
 from typing import Any
+from .card_linker.constants import MINDMAP_NOTE_TYPE_QUERY
 from .mindmap_manager import MindMapManager
 from .usage_guide import show_usage
 
@@ -89,7 +90,7 @@ def open_last_mindmap():
             pass  # Last mind map doesn't exist, continue to open first one
     
     # If no last used or it doesn't exist, open first mind map
-    ids = mw.col.find_notes('"note:MindMap Master"')
+    ids = mw.col.find_notes(MINDMAP_NOTE_TYPE_QUERY)
     if not ids:
         tooltip("No mind maps found. Create one first from Tools > Mind Map > Mind Map Manager")
         return
