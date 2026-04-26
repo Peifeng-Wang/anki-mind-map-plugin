@@ -71,7 +71,7 @@ def _update_existing_node(card_note, mindmap_data, existing_node_id, first_line,
 def _create_new_node_in_mindmap(card_note, mindmap_data, special_node_ids, node_index=None):
     """Create a new node in the mindmap for the card and return its ID."""
     new_node_id = f"node_{uuid.uuid4().hex[:8]}"
-    first_line = extract_first_line(card_note.get('Front', ''))
+    first_line = extract_first_line(card_note['Front'] if 'Front' in card_note else '')
     if not first_line:
         first_line = "Linked Card"
 
@@ -95,7 +95,7 @@ def _create_new_node_in_mindmap(card_note, mindmap_data, special_node_ids, node_
 def link_existing_card_to_mindmap(card_note, mindmap_id, mindmap_title):
     """Link an existing card to a mindmap by creating/updating a node with noteId."""
     try:
-        first_line = extract_first_line(card_note.get('Front', ''))
+        first_line = extract_first_line(card_note['Front'] if 'Front' in card_note else '')
         if not first_line:
             first_line = "Linked Card"
 
@@ -138,6 +138,9 @@ def link_existing_card_to_mindmap(card_note, mindmap_id, mindmap_title):
                 link_html = LINK_HTML_TEMPLATE.format(mindmap_id=mindmap_id, node_id=new_node_id)
                 card_note[field_to_update] += link_html
                 mw.col.update_note(card_note)
+
+        from ..mindmap_editor import MindMapDialog
+        MindMapDialog._refresh_editor_if_open(mw, mindmap_id)
 
         tooltip(f"Linked existing card to '{mindmap_title}'")
 
@@ -182,7 +185,7 @@ def on_note_added(note):
         return
 
     mindmap_id = note.mindmap_selection['id']
-    first_line = extract_first_line(note.get('Front', ''))
+    first_line = extract_first_line(note['Front'] if 'Front' in note else '')
     if not first_line:
         first_line = "New Card"
 
@@ -223,6 +226,9 @@ def on_note_added(note):
             link_html = LINK_HTML_TEMPLATE.format(mindmap_id=mindmap_id, node_id=new_node_id)
             note[field_to_update] += link_html
             mw.col.update_note(note)
+
+        from ..mindmap_editor import MindMapDialog
+        MindMapDialog._refresh_editor_if_open(mw, mindmap_id)
 
         tooltip(f"Added node '{first_line}' to Mind Map")
 
