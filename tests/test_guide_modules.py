@@ -114,37 +114,31 @@ class FakeMainWindow:
 
 def install_anki_stubs():
     fake_mw = FakeMainWindow()
+    from _aqt_stub import install_aqt_stub
 
-    aqt = types.ModuleType("aqt")
-    aqt.mw = fake_mw
+    def _utils_factory():
+        utils = types.ModuleType("aqt.utils")
+        utils.messages = []
+        utils.tooltips = []
+        utils.showInfo = lambda message: utils.messages.append(message)
+        utils.tooltip = lambda message: utils.tooltips.append(message)
+        utils.getText = lambda *args, **kwargs: ("", False)
+        utils.askUser = lambda *args, **kwargs: False
+        return utils
 
-    qt = types.ModuleType("aqt.qt")
-    qt.QDialog = FakeWidget
-    qt.QVBoxLayout = FakeWidget
-    qt.QHBoxLayout = FakeWidget
-    qt.QPushButton = FakeWidget
-    qt.QTextEdit = FakeWidget
-    qt.QTextBrowser = FakeWidget
-    qt.QListWidget = FakeWidget
-
-    utils = types.ModuleType("aqt.utils")
-    utils.messages = []
-    utils.tooltips = []
-    utils.showInfo = lambda message: utils.messages.append(message)
-    utils.tooltip = lambda message: utils.tooltips.append(message)
-    utils.getText = lambda *args, **kwargs: ("", False)
-    utils.askUser = lambda *args, **kwargs: False
-
-    hooks = types.SimpleNamespace(
-        reviewer_did_show_question=[],
-        reviewer_did_show_answer=[],
-        webview_did_receive_js_message=[],
+    _, _, utils, hooks = install_aqt_stub(
+        fake_mw=fake_mw,
+        widget_factory=FakeWidget,
+        hook_names=(
+            "reviewer_did_show_question",
+            "reviewer_did_show_answer",
+            "webview_did_receive_js_message",
+        ),
+        hook_list_cls=list,
+        utils_factory=_utils_factory,
+        install_anki=False,
+        include_input_helpers=False,
     )
-    aqt.gui_hooks = hooks
-
-    sys.modules["aqt"] = aqt
-    sys.modules["aqt.qt"] = qt
-    sys.modules["aqt.utils"] = utils
     return fake_mw, utils, hooks
 
 

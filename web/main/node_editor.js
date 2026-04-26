@@ -2,6 +2,27 @@
 // and committing/canceling the edit. The document-level event listeners
 // that drive these (keyboard, mouse, contextmenu) live in node_editor_events.js.
 
+// Tag/attribute allowlist for topic rich text. Topics carry user-authored
+// formatting from the bold/italic/code hotkeys (see text_formatting.js):
+// <b>, <i>, <em>, <strong>, <code>, <pre>, <br>, plus <span>/<u>/<sub>/<sup>
+// for completeness. MathJax rewrites math expressions on its own pass after
+// the DOM is updated, so we don't need to allow <math>/<svg> here.
+var MM_TOPIC_ALLOWED_TAGS = ['b', 'i', 'em', 'strong', 'code', 'pre', 'br', 'span', 'u', 'sub', 'sup'];
+var MM_TOPIC_ALLOWED_ATTR = ['class', 'style'];
+
+function sanitizeTopicHtml(html) {
+    if (typeof DOMPurify !== 'undefined' && DOMPurify && typeof DOMPurify.sanitize === 'function') {
+        return DOMPurify.sanitize(html, {
+            ALLOWED_TAGS: MM_TOPIC_ALLOWED_TAGS,
+            ALLOWED_ATTR: MM_TOPIC_ALLOWED_ATTR
+        });
+    }
+    // DOMPurify is bundled in editor HTML; if it's missing, we'd rather
+    // render text safely than ship raw HTML. Strip every tag as fallback.
+    console.warn('DOMPurify unavailable; falling back to tag-stripped topic render.');
+    return String(html).replace(/<[^>]*>/g, '');
+}
+
 // Enter edit mode for a node
 function enterEditMode(node) {
     if (!node || MM.state.isEditing) return;
@@ -238,15 +259,15 @@ function exitEditMode() {
                 MM.state.jm.update_node(MM.state.editingNodeId, htmlText);
 
                 if (MM.state.jm.view.opts.support_html) {
-                    // TODO: topic may contain rich-text, sanitize via DOMPurify
-                    nodeElement.innerHTML = htmlText;
+                    // Topic carries rich text (Bold/Italic/Code) — sanitize via DOMPurify.
+                    nodeElement.innerHTML = sanitizeTopicHtml(htmlText);
                 } else {
                     nodeElement.textContent = htmlText;
                 }
             } else {
                 if (MM.state.jm.view.opts.support_html) {
-                    // TODO: topic may contain rich-text, sanitize via DOMPurify
-                    nodeElement.innerHTML = node.topic;
+                    // Topic carries rich text (Bold/Italic/Code) — sanitize via DOMPurify.
+                    nodeElement.innerHTML = sanitizeTopicHtml(node.topic);
                 } else {
                     nodeElement.textContent = node.topic;
                 }

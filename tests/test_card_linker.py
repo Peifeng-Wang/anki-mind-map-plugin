@@ -214,52 +214,25 @@ class FakeMainWindow:
 
 def install_anki_stubs():
     fake_mw = FakeMainWindow()
+    from _aqt_stub import install_aqt_stub
 
-    aqt = types.ModuleType("aqt")
-    aqt.mw = fake_mw
+    def _utils_factory():
+        utils = types.ModuleType("aqt.utils")
+        utils.messages = []
+        utils.tooltips = []
+        utils.showInfo = lambda message: utils.messages.append(message)
+        utils.tooltip = lambda message: utils.tooltips.append(message)
+        utils.getText = lambda *args, **kwargs: ("", False)
+        utils.askUser = lambda *args, **kwargs: False
+        return utils
 
-    qt = types.ModuleType("aqt.qt")
-    qt.QDialog = FakeWidget
-    qt.QVBoxLayout = FakeWidget
-    qt.QHBoxLayout = FakeWidget
-    qt.QPushButton = FakeWidget
-    qt.QTextEdit = FakeWidget
-    qt.QTextBrowser = FakeWidget
-    qt.QListWidget = FakeWidget
-    qt.QFileDialog = FakeFileDialog
-    qt.QCursor = types.SimpleNamespace(pos=lambda: (0, 0))
-    qt.QMenu = FakeWidget
-    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: cb())
-
-    utils = types.ModuleType("aqt.utils")
-    utils.messages = []
-    utils.tooltips = []
-    utils.showInfo = lambda message: utils.messages.append(message)
-    utils.tooltip = lambda message: utils.tooltips.append(message)
-    utils.getText = lambda *args, **kwargs: ("", False)
-    utils.askUser = lambda *args, **kwargs: False
-
-    hooks = types.SimpleNamespace(
-        reviewer_did_show_question=HookList(),
-        reviewer_did_show_answer=HookList(),
-        webview_did_receive_js_message=HookList(),
-        editor_did_init_buttons=HookList(),
-        editor_did_load_note=HookList(),
-        add_cards_did_add_note=HookList(),
-        note_will_flush=HookList(),
-        notes_will_be_deleted=HookList(),
+    _, _, utils, hooks = install_aqt_stub(
+        fake_mw=fake_mw,
+        widget_factory=FakeWidget,
+        file_dialog=FakeFileDialog,
+        hook_list_cls=HookList,
+        utils_factory=_utils_factory,
     )
-    aqt.gui_hooks = hooks
-
-    anki = types.ModuleType("anki")
-    anki_models = types.ModuleType("anki.models")
-    anki_models.NotetypeDict = dict
-
-    sys.modules["aqt"] = aqt
-    sys.modules["aqt.qt"] = qt
-    sys.modules["aqt.utils"] = utils
-    sys.modules["anki"] = anki
-    sys.modules["anki.models"] = anki_models
     return fake_mw, utils, hooks
 
 

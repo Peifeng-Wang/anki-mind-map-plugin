@@ -211,47 +211,35 @@ class FakeMainWindow:
 
 def install_anki_stubs():
     fake_mw = FakeMainWindow()
+    from _aqt_stub import install_aqt_stub
 
-    aqt = types.ModuleType("aqt")
-    aqt.mw = fake_mw
+    def _utils_factory():
+        utils = types.ModuleType("aqt.utils")
+        utils.messages = []
+        utils.tooltips = []
+        utils.showInfo = lambda message: utils.messages.append(message)
+        utils.tooltip = lambda message: utils.tooltips.append(message)
+        utils.getText = lambda *args, **kwargs: ("", False)
+        utils.askUser = lambda *args, **kwargs: False
+        return utils
 
-    qt = types.ModuleType("aqt.qt")
-    qt.QDialog = FakeWidget
-    qt.QVBoxLayout = FakeWidget
-    qt.QHBoxLayout = FakeWidget
-    qt.QPushButton = FakeWidget
-    qt.QTextEdit = FakeWidget
-    qt.QTextBrowser = FakeWidget
-    qt.QListWidget = FakeWidget
-    qt.QFileDialog = FakeFileDialog
-    qt.QCursor = types.SimpleNamespace(pos=lambda: (0, 0))
-    qt.QMenu = type("QMenu", (), {"__init__": lambda self, *a, **kw: None})
-    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: None)
-
-    utils = types.ModuleType("aqt.utils")
-    utils.messages = []
-    utils.tooltips = []
-    utils.showInfo = lambda message: utils.messages.append(message)
-    utils.tooltip = lambda message: utils.tooltips.append(message)
-    utils.getText = lambda *args, **kwargs: ("", False)
-    utils.askUser = lambda *args, **kwargs: False
-
-    hooks = types.SimpleNamespace(
-        reviewer_did_show_question=HookList(),
-        reviewer_did_show_answer=HookList(),
-        webview_did_receive_js_message=HookList(),
+    _, _, utils, hooks = install_aqt_stub(
+        fake_mw=fake_mw,
+        widget_factory=FakeWidget,
+        file_dialog=FakeFileDialog,
+        hook_list_cls=HookList,
+        hook_names=(
+            "reviewer_did_show_question",
+            "reviewer_did_show_answer",
+            "webview_did_receive_js_message",
+        ),
+        utils_factory=_utils_factory,
     )
-    aqt.gui_hooks = hooks
-
-    anki = types.ModuleType("anki")
-    anki_models = types.ModuleType("anki.models")
-    anki_models.NotetypeDict = dict
-
-    sys.modules["aqt"] = aqt
-    sys.modules["aqt.qt"] = qt
-    sys.modules["aqt.utils"] = utils
-    sys.modules["anki"] = anki
-    sys.modules["anki.models"] = anki_models
+    # Keep parity with the original stub: QTimer.singleShot is a no-op
+    # here (rather than firing the callback immediately) because the
+    # manager suite expects deferred execution.
+    qt = sys.modules["aqt.qt"]
+    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: None)
     return fake_mw, utils, hooks
 
 

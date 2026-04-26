@@ -22,74 +22,86 @@ class MindMapDialog(QDialog):
         self.setWindowTitle(f"Mind Map Editor - {self.note['Title']}")
         self.resize(1024, 768)
 
-        # Cache config and save last opened mind map
-        config = mw.addonManager.getConfig(__name__) or {}
-        self._config = config
-        config['last_mindmap_id'] = note_id
-        mw.addonManager.writeConfig(__name__, config)
+        self._save_last_used_id()
+        self._validate_links()
+        self._build_layout()
+        self._load_assets()
+        self._register_undo_redo_shortcuts()
+        self._bind_formatting_hotkeys()
 
-        # Validate and clean up orphaned links before opening
+    # ---------- __init__ helpers ----------
+    def _save_last_used_id(self):
+        """Cache the addon config and remember which mind map was last opened."""
+        config = self.mw.addonManager.getConfig(__name__) or {}
+        self._config = config
+        config['last_mindmap_id'] = self.note_id
+        self.mw.addonManager.writeConfig(__name__, config)
+
+    def _validate_links(self):
+        """Drop orphaned card/map links before the editor renders stale state."""
         from .. import card_linker
         card_linker.validate_and_cleanup_mindmap(self.note)
         from .cleanup import cleanup_orphaned_links
         cleanup_orphaned_links(self)
 
+    def _build_layout(self):
+        """Wire up the dialog layout and the AnkiWebView."""
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
-        # Initialize WebView
         self.web = AnkiWebView(parent=self)
         self.web.set_bridge_command(self._on_bridge_cmd, self)
         self.layout.addWidget(self.web)
 
-        # Load the editor assets
+    def _load_assets(self):
+        """Build the editor HTML from the cached note data and inject it."""
         addon_dir = os.path.dirname(os.path.dirname(__file__))
-
         try:
             data_json = self.note['Data']
             if not data_json:
                 data_json = "{}"
 
             from .assets import build_editor_html
-            html = build_editor_html(self, config, data_json, focus_node_id)
+            html = build_editor_html(self, self._config, data_json, self.focus_node_id)
 
-            # Set base URL
             base_url = QUrl.fromLocalFile(os.path.join(addon_dir, "web", "index.html"))
             self.web.setHtml(html, base_url)
-
-            self.undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
-            self.undo_shortcut.activated.connect(lambda: self.web.eval("window.undo();"))
-
-            self.redo_shortcut = QShortcut(QKeySequence("Ctrl+Y"), self)
-            self.redo_shortcut.activated.connect(lambda: self.web.eval("window.redo();"))
-
-            self.redo_shortcut_alt = QShortcut(QKeySequence("Ctrl+Shift+Z"), self)
-            self.redo_shortcut_alt.activated.connect(lambda: self.web.eval("window.redo();"))
-
-            # Formatting shortcuts for node edit mode (configurable via add-on config.json -> hotkeys).
-            hotkeys = self._config.get("hotkeys", {}) if isinstance(self._config, dict) else {}
-
-            def _bind_formatting_hotkey(config_key: str, action: str) -> None:
-                seq_str = hotkeys.get(config_key)
-                if not isinstance(seq_str, str) or not seq_str.strip():
-                    return
-
-                shortcut = QShortcut(QKeySequence(seq_str), self)
-                shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-                shortcut.activated.connect(
-                    lambda a=action: self.web.eval(
-                        f"window.applyTextFormatting && window.applyTextFormatting({json.dumps(a)});"
-                    )
-                )
-                setattr(self, f"{config_key}_shortcut", shortcut)
-
-            _bind_formatting_hotkey("bold", "bold")
-            _bind_formatting_hotkey("italic", "italic")
-            _bind_formatting_hotkey("inline_code", "inline_code")
-            _bind_formatting_hotkey("code_block", "code_block")
-
         except Exception as e:
             self.web.setHtml(f"<h1>Error loading assets: {e}</h1>")
+
+    def _register_undo_redo_shortcuts(self):
+        """Register Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z bridges to the JS undo stack."""
+        self.undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
+        self.undo_shortcut.activated.connect(lambda: self.web.eval("window.undo();"))
+
+        self.redo_shortcut = QShortcut(QKeySequence("Ctrl+Y"), self)
+        self.redo_shortcut.activated.connect(lambda: self.web.eval("window.redo();"))
+
+        self.redo_shortcut_alt = QShortcut(QKeySequence("Ctrl+Shift+Z"), self)
+        self.redo_shortcut_alt.activated.connect(lambda: self.web.eval("window.redo();"))
+
+    def _bind_formatting_hotkeys(self):
+        """Bind configurable formatting hotkeys (bold, italic, code) for edit mode."""
+        hotkeys = self._config.get("hotkeys", {}) if isinstance(self._config, dict) else {}
+
+        def _bind(config_key: str, action: str) -> None:
+            seq_str = hotkeys.get(config_key)
+            if not isinstance(seq_str, str) or not seq_str.strip():
+                return
+
+            shortcut = QShortcut(QKeySequence(seq_str), self)
+            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(
+                lambda a=action: self.web.eval(
+                    f"window.applyTextFormatting && window.applyTextFormatting({json.dumps(a)});"
+                )
+            )
+            setattr(self, f"{config_key}_shortcut", shortcut)
+
+        _bind("bold", "bold")
+        _bind("italic", "italic")
+        _bind("inline_code", "inline_code")
+        _bind("code_block", "code_block")
 
     @classmethod
     def open_instance(cls, mw, note_id, focus_node_id=None):

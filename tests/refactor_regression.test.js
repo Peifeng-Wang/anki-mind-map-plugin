@@ -494,4 +494,34 @@ test('CSS refactors keep non-empty rules and selected override ordering', () => 
   assert.strictEqual(countMatches(styleCss, /transition:\s*all/g), 0, 'style.css should not use transition: all');
 });
 
+test('DOMPurify is vendored and wired into the rich-text topic render path', () => {
+  const dompurifyPath = 'web/vendor/dompurify/dompurify.min.js';
+  assert.ok(fs.existsSync(file(dompurifyPath)), 'DOMPurify vendor file missing');
+
+  const dompurify = read(dompurifyPath);
+  const sizeKb = Buffer.byteLength(dompurify, 'utf8') / 1024;
+  assert.ok(sizeKb > 10 && sizeKb < 80,
+    `DOMPurify size out of expected range (~25 KB minified), got ${sizeKb.toFixed(1)} KB`);
+  assert.ok(dompurify.startsWith('/*! @license DOMPurify'),
+    'DOMPurify file should start with the upstream license header');
+  assert.ok(/\bsanitize\b/.test(dompurify), 'DOMPurify should expose a sanitize identifier');
+
+  // Sanity check: the syntax should parse so we don't ship a broken minified file.
+  execFileSync(process.execPath, ['--check', file(dompurifyPath)], { stdio: 'pipe' });
+
+  const nodeEditor = read('web/main/node_editor.js');
+  assert.ok(nodeEditor.includes('DOMPurify.sanitize'),
+    'node_editor.js should call DOMPurify.sanitize on the rich-text topic path');
+  assert.ok(nodeEditor.includes('sanitizeTopicHtml('),
+    'node_editor.js should route innerHTML writes through sanitizeTopicHtml');
+  assert.ok(!/TODO:?\s*topic may contain rich-text/i.test(nodeEditor),
+    'P0 sanitize TODO should be resolved in node_editor.js');
+
+  // floating_nodes.js still owns the plain-text path; it must keep using escapeHtml,
+  // not switch to the rich-text DOMPurify pipeline.
+  const floatingNodes = read('web/main/floating_nodes.js');
+  assert.ok(floatingNodes.includes('escapeHtml'),
+    'floating_nodes.js should keep escapeHtml for plain-text topics');
+});
+
 console.log('All refactor regression tests passed.');

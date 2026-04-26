@@ -80,6 +80,32 @@ def get_background_style(addon_dir, config):
         return ""
 
 
+def _render_editor_init_js(config, data_json, focus_node_id):
+    """Substitute __FOO__ placeholders in editor_init.js with json-encoded
+    config/data. Every value is fed through ``json.dumps`` so user-supplied
+    text is never concatenated raw into the HTML."""
+    template = read_asset("editor_assets/editor_init.js")
+
+    # ``data_json`` is already a JSON string emitted from the Anki note. Splice
+    # it in as-is so we don't double-encode (Python json.dumps would wrap it in
+    # quotes and turn it into a string instead of an object literal).
+    substitutions = {
+        "__HOTKEY_CONFIG_JSON__": json.dumps(config.get('hotkeys', {})),
+        "__LINE_COLOR_JSON__": json.dumps(config.get('line_color', 'rgba(139, 92, 246, 0.6)')),
+        "__BRACE_COLOR_JSON__": json.dumps(config.get('brace_color', '#3b82f6')),
+        "__BOUNDARY_COLOR_JSON__": json.dumps(config.get('boundary_color', '#ef4444')),
+        "__ENABLE_FLOATING_NODES_JSON__": json.dumps(config.get('enable_floating_nodes', True)),
+        "__JUMP_MODE_JSON__": json.dumps(config.get('jump_mode', 'preview')),
+        "__INITIAL_DATA_JSON__": data_json if data_json else "{}",
+        "__FOCUS_NODE_ID_JSON__": json.dumps(focus_node_id or ''),
+    }
+
+    rendered = template
+    for token, value in substitutions.items():
+        rendered = rendered.replace(token, value)
+    return rendered
+
+
 def build_editor_html(dialog, config, data_json, focus_node_id):
     """Build the full HTML for the mind map editor."""
     addon_dir = os.path.dirname(os.path.dirname(__file__))
@@ -137,6 +163,13 @@ def build_editor_html(dialog, config, data_json, focus_node_id):
 
     bg_style = get_background_style(addon_dir, config)
 
+    # Heavy CSS/JS literals live in real files now. Keep only the slim HTML
+    # scaffolding here so syntax highlighting and editing work.
+    editor_chrome_css = read_asset("editor_assets/editor_chrome.css")
+    mathjax_config_js = read_asset("editor_assets/mathjax_config.js")
+    dompurify_js = read_asset("vendor/dompurify/dompurify.min.js")
+    editor_init_js = _render_editor_init_js(config, data_json, focus_node_id)
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -146,148 +179,15 @@ def build_editor_html(dialog, config, data_json, focus_node_id):
         {jsmind_css}
         {style_css}
         {bg_style}
-
-        .toolbar {{
-            position: fixed;
-            top: 5px;
-            left: 5px;
-            z-index: 2000;
-            padding: 0;
-            margin: 0;
-            background: transparent;
-            box-shadow: none;
-            width: auto;
-            height: auto;
-        }}
-
-        .toolbar button {{
-            background: transparent !important;
-            color: #aaa;
-            border: none;
-            padding: 2px 4px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-weight: normal;
-            font-size: 14px;
-            line-height: 1;
-            transition: all 0.2s;
-            opacity: 0.4;
-            box-shadow: none;
-        }}
-
-        .toolbar button:hover {{
-            color: #333;
-            opacity: 1;
-            background: rgba(0,0,0,0.05) !important;
-        }}
-
-        .menu-container {{
-            position: relative;
-            display: inline-block;
-        }}
-        .menu-content {{
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background-color: white;
-            min-width: 160px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            border-radius: 4px;
-            padding: 5px 0;
-            z-index: 2001;
-            border: 1px solid #eee;
-            margin-top: 5px;
-        }}
-        .menu-content.show {{
-            display: block;
-        }}
-        .menu-item {{
-            padding: 8px 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            font-size: 13px;
-            color: #333;
-        }}
-        .menu-item:hover {{
-            background-color: #f5f5f5;
-        }}
-        .menu-item input {{
-            margin-right: 8px;
-        }}
-        .menu-divider {{
-            height: 1px;
-            background-color: #eee;
-            margin: 4px 0;
-        }}
-
-        html, body {{
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }}
-
-        #jsmind_container {{
-            position: absolute;
-            top: 0 !important;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            height: 100% !important;
-            margin: 0;
-            padding: 0;
-        }}
-
-        :fullscreen #jsmind_container {{
-            top: 0 !important;
-            height: 100% !important;
-        }}
-
-        #auto-save-status {{
-            position: fixed;
-            top: 55px;
-            right: 10px;
-            padding: 5px 10px;
-            background: rgba(40, 167, 69, 0.9);
-            color: white;
-            border-radius: 3px;
-            font-size: 12px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            z-index: 1000;
-        }}
-
-        /* Floating nodes styles */
-        jmnode[nodeid^="floating_"] {{
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }}
-        jmnode[nodeid^="floating_"]:hover {{
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-        }}
-        jmnode[nodeid^="floating_"].attaching {{
-            border-color: #4dc4ff !important;
-            animation: pulse 0.5s infinite;
-        }}
-        @keyframes pulse {{
-            0%, 100% {{ transform: scale(1); }}
-            50% {{ transform: scale(1.05); }}
-        }}
+        {editor_chrome_css}
         </style>
         <script>
-        window.MathJax = {{
-            tex: {{
-                inlineMath: [['\\\\(', '\\\\)'], ['$', '$']],
-                displayMath: [['\\\\[', '\\\\]'], ['$$', '$$']]
-            }},
-            svg: {{
-                fontCache: 'global'
-            }}
-        }};
+        {mathjax_config_js}
         </script>
         <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+        <script>
+        {dompurify_js}
+        </script>
         <script>
         {jsmind_js}
         </script>
@@ -335,70 +235,7 @@ def build_editor_html(dialog, config, data_json, focus_node_id):
         </script>
 
         <script>
-        // Inject hotkey configuration
-        var hotkeyConfigFromPython = {json.dumps(config.get('hotkeys', {}))};
-        var lineColorFromPython = {json.dumps(config.get('line_color', 'rgba(139, 92, 246, 0.6)'))};
-        var braceColorFromPython = {json.dumps(config.get('brace_color', '#3b82f6'))};
-        var boundaryColorFromPython = {json.dumps(config.get('boundary_color', '#ef4444'))};
-        var enableFloatingNodesFromPython = {json.dumps(config.get('enable_floating_nodes', True))};
-        var initialJumpMode = {json.dumps(config.get('jump_mode', 'preview'))};
-
-        if (hotkeyConfigFromPython && Object.keys(hotkeyConfigFromPython).length > 0) {{
-            // Merge user config with defaults so new hotkeys get sensible fallbacks.
-            MM.state.hotkeyConfig = Object.assign({{}}, MM.state.hotkeyConfig, hotkeyConfigFromPython);
-            console.log("Loaded hotkey config:", MM.state.hotkeyConfig);
-        }}
-
-        // Inject data directly
-        var initialData = {data_json};
-        var initialFocusId = "{focus_node_id or ''}";
-
-        // Menu Logic
-        function toggleMenu() {{
-            var menu = document.getElementById("main-menu");
-            if (menu.style.display === "block") {{
-                menu.style.display = "none";
-            }} else {{
-                menu.style.display = "block";
-            }}
-        }}
-
-        // Close menu when clicking outside
-        document.addEventListener('click', function(event) {{
-            var container = document.querySelector('.menu-container');
-            if (!container.contains(event.target)) {{
-                document.getElementById("main-menu").style.display = "none";
-            }}
-        }});
-
-        function setJumpMode(mode) {{
-            // Update UI
-            document.getElementById('mode_' + mode).checked = true;
-            // Save to Anki config
-            pycmd("update_config:jump_mode=" + mode);
-        }}
-
-        // Initialize UI based on config
-        if (typeof initialJumpMode !== 'undefined') {{
-            document.getElementById('mode_' + initialJumpMode).checked = true;
-        }}
-
-        window.onload = function() {{
-            console.log("Window loaded. Starting init...");
-            if (typeof initEditor === 'function') {{
-                initEditor(initialData);
-
-                if (initialFocusId) {{
-                    setTimeout(function() {{
-                        if (typeof focusNode === 'function') {{
-                            focusNode(initialFocusId);
-                        }}
-                    }}, 800);
-                }}
-            }} else {{
-                console.error("Error: initEditor function not found!");
-            }}
-        }};
+        {editor_init_js}
         </script>
     </body>
     </html>

@@ -60,60 +60,21 @@ class FakeMainWindow:
 
 def install_anki_stubs():
     fake_mw = FakeMainWindow()
+    from _aqt_stub import install_aqt_stub
 
-    aqt = types.ModuleType("aqt")
-    aqt.mw = fake_mw
+    def _utils_factory():
+        utils = types.ModuleType("aqt.utils")
+        utils.showInfo = lambda *a, **kw: None
+        utils.tooltip = lambda *a, **kw: None
+        utils.getText = lambda *a, **kw: ("", False)
+        utils.askUser = lambda *a, **kw: False
+        return utils
 
-    qt = types.ModuleType("aqt.qt")
-    qt.QCursor = types.SimpleNamespace(pos=lambda: (0, 0))
-    qt.QMenu = type("QMenu", (), {"__init__": lambda self, *a, **kw: None})
-    qt.QTimer = types.SimpleNamespace(singleShot=lambda ms, cb: cb())
-    qt.QDialog = type("QDialog", (), {"__init__": lambda self, *a, **kw: None})
-    qt.QVBoxLayout = type("QVBoxLayout", (), {"__init__": lambda self, *a, **kw: None})
-    qt.QHBoxLayout = type("QHBoxLayout", (), {"__init__": lambda self, *a, **kw: None})
-    qt.QPushButton = type("QPushButton", (), {"__init__": lambda self, *a, **kw: None})
-    qt.QTextEdit = type("QTextEdit", (), {"__init__": lambda self, *a, **kw: None})
-    qt.QTextBrowser = type("QTextBrowser", (), {"__init__": lambda self, *a, **kw: None})
-    qt.QListWidget = type("QListWidget", (), {"__init__": lambda self, *a, **kw: None})
-
-    class _FakeFileDialog:
-        @staticmethod
-        def getSaveFileName(*a, **kw):
-            return ("", "")
-
-        @staticmethod
-        def getOpenFileName(*a, **kw):
-            return ("", "")
-
-    qt.QFileDialog = _FakeFileDialog
-
-    utils = types.ModuleType("aqt.utils")
-    utils.showInfo = lambda *a, **kw: None
-    utils.tooltip = lambda *a, **kw: None
-    utils.getText = lambda *a, **kw: ("", False)
-    utils.askUser = lambda *a, **kw: False
-
-    hooks = types.SimpleNamespace(
-        reviewer_did_show_question=HookList(),
-        reviewer_did_show_answer=HookList(),
-        webview_did_receive_js_message=HookList(),
-        editor_did_init_buttons=HookList(),
-        editor_did_load_note=HookList(),
-        add_cards_did_add_note=HookList(),
-        note_will_flush=HookList(),
-        notes_will_be_deleted=HookList(),
+    install_aqt_stub(
+        fake_mw=fake_mw,
+        hook_list_cls=HookList,
+        utils_factory=_utils_factory,
     )
-    aqt.gui_hooks = hooks
-
-    anki = types.ModuleType("anki")
-    anki_models = types.ModuleType("anki.models")
-    anki_models.NotetypeDict = dict
-
-    sys.modules["aqt"] = aqt
-    sys.modules["aqt.qt"] = qt
-    sys.modules["aqt.utils"] = utils
-    sys.modules["anki"] = anki
-    sys.modules["anki.models"] = anki_models
     return fake_mw
 
 
